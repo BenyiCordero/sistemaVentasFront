@@ -22,7 +22,7 @@ async function checkAuthStatus() {
     const isOnRegisterPage = window.location.pathname.includes('register.html');
 
     if (accessToken) {
-        if (isOnLoginPage) window.location.href = 'landingPage.html';
+        if (isOnLoginPage) window.location.href = 'dashboard.html';
         return;
     }
 
@@ -35,7 +35,7 @@ async function checkAuthStatus() {
         if (resp.ok) {
             const data = await resp.json();
             accessToken = data.access_token;
-            if (isOnLoginPage) window.location.href = 'landingPage.html';
+            if (isOnLoginPage) window.location.href = 'dashboard.html';
         } else {
             if (!isOnLoginPage && !isOnRegisterPage) {
                 window.location.href = 'index.html';
@@ -107,7 +107,7 @@ if (loginForm) {
             if (data.access_token) {
                 accessToken = data.access_token;
                 if (authMessage) displayMessage(authMessage, '¡Inicio de sesión exitoso!');
-                window.location.href = 'landingPage.html';
+                window.location.href = 'dashboard.html';
             } else {
                 throw new Error('No se recibió access_token del servidor');
             }
@@ -152,7 +152,7 @@ if (registerForm) {
             if (data.access_token) {
                 accessToken = data.access_token;
                 if (authMessage) displayMessage(authMessage, 'Registro exitoso!');
-                window.location.href = 'landingPage.html';
+                window.location.href = 'dashboard.html';
             } else {
                 throw new Error('No se recibió access_token del servidor');
             }
