@@ -101,7 +101,6 @@ if (loginForm) {
         safeClearMessage(authMessage);
 
         try {
-            console.log('Intentando iniciar sesión con:', { username });
             const response = await fetch(LOGIN_API_URL, {
                 method: 'POST',
                 headers: {
@@ -131,6 +130,7 @@ if (loginForm) {
             }
 
             if (responseData.access_token) {
+                localStorage.setItem('email', username);
                 localStorage.setItem('authToken', responseData.access_token);
                 safeDisplayMessage(authMessage, '¡Inicio de sesión exitoso!');
                 console.log('Login successful. Redirecting to landingPage.html');
