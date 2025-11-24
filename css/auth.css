@@ -1,5 +1,5 @@
 body{
-    background-image: url('../assets/fondo.png');
+    background-image: url('../assets/fondo.jpg');
     background-repeat: no-repeat;
     background-position: center;
     background-size: cover;
@@ -14,7 +14,7 @@ main{
     width: 100%;
     max-width: 600px;
     display: flex;
-    opacity: 89%;
+    opacity: 90%;
 }
 
 form{
