@@ -77,7 +77,7 @@ function setupCommonBehavior() {
             e.preventDefault();
             localStorage.removeItem('authToken');
             clearUserProfile();
-            window.location.href = 'login.html';
+            window.location.href = 'landingPage.html';
         });
     }
 }
