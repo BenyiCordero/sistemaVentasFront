@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reportes - Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/landingPage.css">
+</head>
+
+<body data-page="reportes">
+
+    <div id="sidebar-placeholder"></div>
+    <div id="topbar-placeholder"></div>
+
+    <main id="main-content" class="p-4">
+        <div class="container-fluid">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Reportes</h3>
+                <div>
+                    <button id="btnGenerateReport" class="btn btn-primary me-2">
+                        <i class="bi bi-file-earmark-text"></i> Generar reporte
+                    </button>
+                    <button id="btnRefreshReports" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Refrescar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros de reporte -->
+            <div class="card rounded-15 mb-3">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label">Tipo de reporte</label>
+                            <select id="selectReportType" class="form-select">
+                                <option value="gastos">Reporte de gastos</option>
+                                <option value="ventas">Reporte de ventas</option>
+                                <option value="inventario">Reporte de inventario</option>
+                                <option value="general">Reporte general</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label">Fecha inicio</label>
+                            <input id="inputStartDate" class="form-control" type="date">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label">Fecha fin</label>
+                            <input id="inputEndDate" class="form-control" type="date">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button id="btnApplyFilters" class="btn btn-outline-primary w-100">
+                                    <i class="bi bi-funnel"></i> Aplicar filtros
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de métricas -->
+            <div class="row g-3 mb-3">
+                <div class="col-12 col-md-3">
+                    <div class="panel-card rounded-15 p-3">
+                        <h6 class="text-muted mb-2">Total Ingresos</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div id="total-ingresos" class="fs-4 fw-bold text-success">$0.00</div>
+                            <i class="bi bi-graph-up-arrow fs-3 text-success"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <div class="panel-card rounded-15 p-3">
+                        <h6 class="text-muted mb-2">Total Gastos</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div id="total-gastos" class="fs-4 fw-bold text-danger">$0.00</div>
+                            <i class="bi bi-graph-down-arrow fs-3 text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <div class="panel-card rounded-15 p-3">
+                        <h6 class="text-muted mb-2">Balance</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div id="total-balance" class="fs-4 fw-bold text-primary">$0.00</div>
+                            <i class="bi bi-cash-stack fs-3 text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3">
+                    <div class="panel-card rounded-15 p-3">
+                        <h6 class="text-muted mb-2">Transacciones</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div id="total-transacciones" class="fs-4 fw-bold">0</div>
+                            <i class="bi bi-receipt fs-3 text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="row g-3 mb-3">
+                <div class="col-12 col-md-8">
+                    <div class="panel-card rounded-15 p-3">
+                        <h5 class="mb-3">Evolución Mensual</h5>
+                        <canvas id="chartEvolution" width="400" height="200"></canvas>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="panel-card rounded-15 p-3">
+                        <h5 class="mb-3">Distribución</h5>
+                        <canvas id="chartDistribution" width="200" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de detalles -->
+            <div class="card rounded-15">
+                <div class="card-body">
+                    <h5 class="mb-3">Detalles del Reporte</h5>
+                    <div class="table-responsive">
+                        <table id="reportsTable" class="table table-striped table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Categoría</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- filas inyectadas por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="reports-empty" class="text-muted small text-center py-3 d-none">
+                        No hay datos para mostrar con los filtros seleccionados.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal: Generar reporte -->
+    <div class="modal fade" id="modalGenerateReport" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formGenerateReport">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Generar Reporte Personalizado</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Tipo de reporte</label>
+                                <select name="tipoReporte" id="selectTipoReporte" class="form-select" required>
+                                    <option value="">Seleccionar</option>
+                                    <option value="gastos">Gastos</option>
+                                    <option value="ventas">Ventas</option>
+                                    <option value="inventario">Inventario</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Formato</label>
+                                <select name="formato" id="selectFormato" class="form-select" required>
+                                    <option value="pdf">PDF</option>
+                                    <option value="excel">Excel</option>
+                                    <option value="csv">CSV</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Fecha inicio</label>
+                                <input name="fechaInicio" id="inputFechaInicio" class="form-control" type="date" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Fecha fin</label>
+                                <input name="fechaFin" id="inputFechaFin" class="form-control" type="date" required>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Descripción adicional</label>
+                                <textarea name="descripcion" id="inputDescripcionReporte" class="form-control" rows="2"
+                                    placeholder="Notas adicionales para el reporte"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="btnSubmitReport" type="submit" class="btn btn-primary">
+                            <i class="bi bi-download"></i> Generar y descargar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="js/partials.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/utils.js"></script>
+    <script type="module" src="js/session.js"></script>
+    <script type="module" src="js/reportes.js"></script>
+</body>
+
+</html>
