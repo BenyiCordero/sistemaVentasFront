@@ -82,9 +82,15 @@
                     <div class="modal-body">
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
-                                <label class="form-label">Cliente</label>
-                                <input name="cliente" id="inputCliente" class="form-control" type="text"
-                                    placeholder="Nombre del cliente" required>
+                                <label class="form-label">Seleccionar Cliente</label>
+                                <select name="cliente" id="selectCliente" class="form-select">
+                                    <option value="">Seleccionar cliente...</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">O Nuevo Cliente</label>
+                                <input name="clienteNuevo" id="inputClienteNuevo" class="form-control" type="text"
+                                    placeholder="Nombre del cliente nuevo">
                             </div>
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Fecha</label>

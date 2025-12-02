@@ -4,8 +4,9 @@ import { getUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sucursal/${sucursalId}`;
+const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
+const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 
 const ventasTableBody = () => document.querySelector('#ventasTable tbody');
 const ventasEmpty = () => document.getElementById('ventas-empty');
@@ -13,6 +14,7 @@ const sucursalWarningEl = () => document.getElementById('sucursal-warning');
 
 let currentSucursalId = null;
 let modalInstance = null;
+let currentClients = [];
 
 function setSucursal(id) {
     currentSucursalId = id ? Number(id) : null;
@@ -28,15 +30,14 @@ function setSucursal(id) {
 }
 
 function showSucursalInputAlways(profile) {
-    const raw = profile?.raw;
-    if (raw && raw.sucursal && raw.sucursal.id) {
-        document.getElementById('inputSucursalId').value = String(raw.sucursal.id);
-        setSucursal(null); 
+    if (profile?.idSucursal) {
+        document.getElementById('inputSucursalId').value = String(profile.idSucursal);
+        setSucursal(profile.idSucursal); 
     } else {
         const stored = localStorage.getItem('sucursalId');
         if (stored) {
             document.getElementById('inputSucursalId').value = String(stored);
-            setSucursal(null);
+            setSucursal(Number(stored));
         } else {
             document.getElementById('inputSucursalId').value = '';
             setSucursal(null);
@@ -47,14 +48,19 @@ function showSucursalInputAlways(profile) {
 function renderSaleRow(sale) {
     const tr = document.createElement('tr');
     const fecha = new Date(sale.fecha || sale.createdAt || Date.now()).toLocaleString();
+    const clienteNombre = sale.cliente?.persona ? 
+        [sale.cliente.persona.nombre, sale.cliente.persona.primerApellido, sale.cliente.persona.segundoApellido]
+            .filter(Boolean).join(' ') : 
+        (sale.nombreCliente || 'Cliente');
+    
     tr.innerHTML = `
-    <td>${sale.id ?? ''}</td>
+    <td>${sale.idVenta ?? sale.id ?? ''}</td>
     <td>${fecha}</td>
-    <td>${(sale.cliente || sale.nombreCliente) ?? 'Cliente'}</td>
+    <td>${clienteNombre}</td>
     <td>${sale.concepto ?? sale.descripcion ?? ''}</td>
-    <td class="text-end">${typeof sale.total !== 'undefined' ? Number(sale.total).toFixed(2) : ''}</td>
+    <td class="text-end">${typeof (sale.totalVenta || sale.total) !== 'undefined' ? Number(sale.totalVenta || sale.total).toFixed(2) : ''}</td>
     <td>
-        <button class="btn btn-sm btn-outline-secondary btn-view" data-id="${sale.id}"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-secondary btn-view" data-id="${sale.idVenta || sale.id}"><i class="bi bi-eye"></i></button>
     </td>
     `;
     return tr;
@@ -145,14 +151,17 @@ function initModalLogic() {
             return;
         }
 
+        const selectedClientId = document.getElementById('selectCliente').value;
+        const selectedClient = currentClients.find(c => (c.idCliente || c.id) == selectedClientId);
+        
         const payload = {
-            sucursalId: currentSucursalId,
-            cliente: document.getElementById('inputCliente').value.trim(),
+            sucursal: { idSucursal: currentSucursalId },
+            cliente: selectedClient ? { idCliente: selectedClient.idCliente || selectedClient.id } : { nombre: document.getElementById('inputClienteNuevo').value.trim() },
             fecha: document.getElementById('inputFecha').value,
             concepto: document.getElementById('inputConcepto').value.trim(),
             cantidad: Number(document.getElementById('inputCantidad').value || 0),
             precioUnitario: Number(document.getElementById('inputPrecioUnitario').value || 0),
-            total: Number(document.getElementById('inputTotal').value || 0),
+            totalVenta: Number(document.getElementById('inputTotal').value || 0),
             notas: document.getElementById('inputNotas').value.trim()
         };
 
@@ -177,12 +186,53 @@ function initModalLogic() {
     });
 }
 
+async function loadClients() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(GET_CLIENTS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!res.ok) {
+            let txt = `Status ${res.status}`;
+            try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+            throw new Error(txt);
+        }
+        const data = await res.json();
+        currentClients = Array.isArray(data) ? data : (data?.clients ?? data?.data ?? []);
+        
+        // Actualizar select de clientes en el modal
+        const selectCliente = document.getElementById('selectCliente');
+        if (selectCliente) {
+            selectCliente.innerHTML = '<option value="">Seleccionar cliente...</option>';
+            currentClients.forEach(client => {
+                const nombreCompleto = [client.nombre, client.primerApellido, client.segundoApellido]
+                    .filter(Boolean).join(' ');
+                const option = document.createElement('option');
+                option.value = client.idCliente || client.id;
+                option.textContent = nombreCompleto;
+                selectCliente.appendChild(option);
+            });
+        }
+    } catch (err) {
+        console.error('loadClients error', err);
+        currentClients = [];
+    }
+}
+
 async function loadSales() {
     try {
         if (!currentSucursalId) {
             renderSalesTable([]);
             return;
         }
+        
+        // Cargar clientes primero
+        await loadClients();
+        
         const sales = await fetchSalesBySucursal(currentSucursalId);
         renderSalesTable(sales);
     } catch (err) {

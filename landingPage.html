@@ -26,7 +26,7 @@
                             importantes.</p>
 
                         <div class="row g-3">
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <a href="ventas.html"
                                     class="card action-card rounded-15 text-decoration-none p-3 h-100">
                                     <div class="d-flex align-items-center">
@@ -38,7 +38,7 @@
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <a href="inventario.html"
                                     class="card action-card rounded-15 text-decoration-none p-3 h-100">
                                     <div class="d-flex align-items-center">
@@ -50,17 +50,29 @@
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-12 col-md-4">
-                                <a href="reportes.html"
-                                    class="card action-card rounded-15 text-decoration-none p-3 h-100">
+                            <div class="col-12 col-md-3">
+                                <button class="card action-card rounded-15 text-decoration-none p-3 h-100 border-0 bg-transparent"
+                                    data-bs-toggle="modal" data-bs-target="#modalSucursal">
                                     <div class="d-flex align-items-center">
-                                        <i class="bi bi-cash-coin fs-3 me-3"></i>
+                                        <i class="bi bi-building fs-3 me-3"></i>
                                         <div>
-                                            <div class="fw-semibold">Créditos</div>
-                                            <small class="text-muted">Gestiona créditos</small>
+                                            <div class="fw-semibold">Nueva Sucursal</div>
+                                            <small class="text-muted">Crear sucursal</small>
                                         </div>
                                     </div>
-                                </a>
+                                </button>
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <button class="card action-card rounded-15 text-decoration-none p-3 h-100 border-0 bg-transparent"
+                                    data-bs-toggle="modal" data-bs-target="#modalCliente">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-person-plus fs-3 me-3"></i>
+                                        <div>
+                                            <div class="fw-semibold">Nuevo Cliente</div>
+                                            <small class="text-muted">Agregar cliente</small>
+                                        </div>
+                                    </div>
+                                </button>
                             </div>
                         </div>
 
@@ -72,7 +84,7 @@
                         <h5>Ingresos</h5>
                         <div class="d-flex justify-content-between align-items-center mt-3">
                             <div>
-                                <div id="ingreso-total" class="fs-4 fw-bold">$ 12,450.00</div><small
+                                <div id="ingreso-total" class="fs-4 fw-bold">$ 0.00</div><small
                                     class="text-muted">Total este mes</small>
                             </div>
                             <i class="bi bi-currency-dollar fs-2"></i>
@@ -85,17 +97,104 @@
                         <h5>Gastos</h5>
                         <div class="d-flex justify-content-between align-items-center mt-3">
                             <div>
-                                <div id="gasto-total" class="fs-4 fw-bold">$ 800.00</div><small class="text-muted">Total
+                                <div id="gasto-total" class="fs-4 fw-bold">$ 0.00</div><small
+                                    class="text-muted">Total
                                     este mes</small>
                             </div>
-                            <a href="gastos.html"><i class="bi bi-exclamation-circle fs-2"></i></a>
+                            <a href="gastos.html"><i class="bi bi-cash-stack fs-2"></i></a>
                         </div>
                     </div>
-                </div>
-
             </div>
         </div>
     </main>
+
+    <!-- Modal: Nueva Sucursal -->
+    <div class="modal fade" id="modalSucursal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formSucursal">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Crear Nueva Sucursal</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre de la Sucursal *</label>
+                            <input name="nombre" id="inputSucursalNombre" class="form-control" type="text"
+                                placeholder="Ej: Sucursal Central" maxlength="60" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Clave de Sucursal *</label>
+                            <input name="sucursalKey" id="inputSucursalKey" class="form-control" type="text"
+                                placeholder="Ej: SUC01" maxlength="10" required>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input name="activo" id="inputSucursalActivo" class="form-check-input" type="checkbox" checked>
+                                <label class="form-check-label" for="inputSucursalActivo">
+                                    Sucursal Activa
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="btnSubmitSucursal" type="submit" class="btn btn-primary">Crear Sucursal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Nuevo Cliente -->
+    <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formCliente">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Crear Nuevo Cliente</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Nombre *</label>
+                                <input name="nombre" id="inputClienteNombre" class="form-control" type="text"
+                                    placeholder="Juan" maxlength="50" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Primer Apellido *</label>
+                                <input name="primerApellido" id="inputClientePrimerApellido" class="form-control" type="text"
+                                    placeholder="Pérez" maxlength="50" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Segundo Apellido</label>
+                                <input name="segundoApellido" id="inputClienteSegundoApellido" class="form-control" type="text"
+                                    placeholder="López" maxlength="50">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Teléfono *</label>
+                                <input name="numeroTelefono" id="inputClienteTelefono" class="form-control" type="text"
+                                    placeholder="5551234567" maxlength="12" required>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input name="creditoActivo" id="inputClienteCredito" class="form-check-input" type="checkbox">
+                                    <label class="form-check-label" for="inputClienteCredito">
+                                        Crédito Activo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="btnSubmitCliente" type="submit" class="btn btn-primary">Crear Cliente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="js/partials.js"></script>

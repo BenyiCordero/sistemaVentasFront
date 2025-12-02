@@ -4,11 +4,12 @@ import { getUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const GET_USERS_ENDPOINT = `${BASE_API_URL}/users`;
-const CREATE_USER_ENDPOINT = `${BASE_API_URL}/users`;
-const UPDATE_USER_ENDPOINT = (id) => `${BASE_API_URL}/users/${id}`;
-const DELETE_USER_ENDPOINT = (id) => `${BASE_API_URL}/users/${id}`;
-const CHANGE_PASSWORD_ENDPOINT = (id) => `${BASE_API_URL}/users/${id}/password`;
+// Los usuarios se gestionan a través del endpoint /auth/register y /worker
+const GET_USERS_ENDPOINT = `${BASE_API_URL}/worker`;
+const CREATE_USER_ENDPOINT = `${BASE_API_URL}/auth/register`;
+const UPDATE_USER_ENDPOINT = (id) => `${BASE_API_URL}/worker/${id}`;
+const DELETE_USER_ENDPOINT = (id) => `${BASE_API_URL}/worker/${id}`;
+const CHANGE_PASSWORD_ENDPOINT = null; // No hay endpoint específico para cambiar contraseña
 
 const usersTableBody = () => document.querySelector('#usersTable tbody');
 const usersEmpty = () => document.getElementById('users-empty');
@@ -104,8 +105,15 @@ function filterUsers() {
 }
 
 async function fetchUsers() {
+    // Obtener usuario actual ya que no hay endpoint para listar todos los usuarios
     const token = localStorage.getItem('authToken');
-    const res = await fetch(GET_USERS_ENDPOINT, {
+    const email = localStorage.getItem('email');
+    
+    if (!email) {
+        return [];
+    }
+    
+    const res = await fetch(`${GET_USERS_ENDPOINT}/getByEmail?email=${encodeURIComponent(email)}`, {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -118,7 +126,7 @@ async function fetchUsers() {
         throw new Error(txt);
     }
     const data = await res.json();
-    return Array.isArray(data) ? data : (data?.users ?? data?.data ?? []);
+    return [data]; // Devolver array con el usuario actual
 }
 
 async function createUser(userPayload) {
@@ -140,56 +148,18 @@ async function createUser(userPayload) {
 }
 
 async function updateUser(id, userPayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(UPDATE_USER_ENDPOINT(id), {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(userPayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
+    // El backend no tiene endpoint para actualizar usuarios
+    throw new Error('La actualización de usuarios no está disponible en el backend actual');
 }
 
 async function deleteUser(id) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(DELETE_USER_ENDPOINT(id), {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return true;
+    // El backend no tiene endpoint para eliminar usuarios
+    throw new Error('La eliminación de usuarios no está disponible en el backend actual');
 }
 
 async function changeUserPassword(id, passwordPayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(CHANGE_PASSWORD_ENDPOINT(id), {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(passwordPayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
+    // El backend no tiene endpoint específico para cambiar contraseña
+    throw new Error('El cambio de contraseña no está disponible en el backend actual');
 }
 
 function initModalLogic() {

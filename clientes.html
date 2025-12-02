@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clientes - Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/landingPage.css">
+</head>
+
+<body data-page="clientes">
+
+    <div id="sidebar-placeholder"></div>
+    <div id="topbar-placeholder"></div>
+
+    <main id="main-content" class="p-4">
+        <div class="container-fluid">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">Clientes</h3>
+                <div>
+                    <button id="btnOpenNewClient" class="btn btn-primary me-2">
+                        <i class="bi bi-plus-lg"></i> Nuevo cliente
+                    </button>
+                    <button id="btnRefreshClients" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Refrescar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card rounded-15 mb-3">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Buscar cliente</label>
+                            <input id="inputSearch" class="form-control" type="text" placeholder="Nombre, teléfono o ID">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label">Estado de crédito</label>
+                            <select id="selectCredito" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="activo">Crédito Activo</option>
+                                <option value="inactivo">Crédito Inactivo</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button id="btnFilter" class="btn btn-outline-primary w-100">
+                                    <i class="bi bi-funnel"></i> Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card rounded-15">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="clientsTable" class="table table-striped table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Teléfono</th>
+                                    <th>Crédito</th>
+                                    <th>Fecha Registro</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- filas inyectadas por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="clients-empty" class="text-muted small text-center py-3 d-none">
+                        No hay clientes registrados.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal: Nuevo/Editar cliente -->
+    <div class="modal fade" id="modalClient" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formClient">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalClientTitle">Nuevo cliente</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Nombre *</label>
+                                <input name="nombre" id="inputClientNombre" class="form-control" type="text"
+                                    placeholder="Juan" maxlength="50" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Primer Apellido *</label>
+                                <input name="primerApellido" id="inputClientPrimerApellido" class="form-control" type="text"
+                                    placeholder="Pérez" maxlength="50" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Segundo Apellido</label>
+                                <input name="segundoApellido" id="inputClientSegundoApellido" class="form-control" type="text"
+                                    placeholder="López" maxlength="50">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Teléfono *</label>
+                                <input name="numeroTelefono" id="inputClientTelefono" class="form-control" type="text"
+                                    placeholder="5551234567" maxlength="12" required>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input name="creditoActivo" id="inputClientCredito" class="form-check-input" type="checkbox">
+                                    <label class="form-check-label" for="inputClientCredito">
+                                        Crédito Activo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="btnSubmitClient" type="submit" class="btn btn-primary">Guardar cliente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="js/partials.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/utils.js"></script>
+    <script type="module" src="js/session.js"></script>
+    <script type="module" src="js/clientes.js"></script>
+</body>
+
+</html>
