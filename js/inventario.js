@@ -4,10 +4,10 @@ import { getUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/products`;
-const CREATE_PRODUCT_ENDPOINT = `${BASE_API_URL}/products`;
-const UPDATE_PRODUCT_ENDPOINT = (id) => `${BASE_API_URL}/products/${id}`;
-const DELETE_PRODUCT_ENDPOINT = (id) => `${BASE_API_URL}/products/${id}`;
+const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
+const CREATE_PRODUCT_ENDPOINT = `${BASE_API_URL}/product`;
+const UPDATE_PRODUCT_ENDPOINT = (id) => `${BASE_API_URL}/product/${id}`;
+const DELETE_PRODUCT_ENDPOINT = (id) => `${BASE_API_URL}/product/${id}`;
 
 const productsTableBody = () => document.querySelector('#productsTable tbody');
 const productsEmpty = () => document.getElementById('products-empty');
@@ -27,18 +27,18 @@ function renderProductRow(product) {
     const status = getStockStatus(product.stock, product.stockMinimo);
     
     tr.innerHTML = `
-    <td>${product.id ?? ''}</td>
+    <td>${product.idProducto ?? product.id ?? ''}</td>
     <td>${product.codigo ?? ''}</td>
     <td>${product.nombre ?? ''}</td>
     <td><span class="badge bg-secondary">${product.categoria ?? ''}</span></td>
     <td>${product.stock ?? 0}</td>
-    <td class="text-end">$${typeof product.precioVenta !== 'undefined' ? Number(product.precioVenta).toFixed(2) : '0.00'}</td>
+    <td class="text-end">$${typeof product.precio !== 'undefined' ? Number(product.precio).toFixed(2) : '0.00'}</td>
     <td><span class="badge bg-${status.class}">${status.text}</span></td>
     <td>
-        <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${product.id}">
+        <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${product.idProducto || product.id}">
             <i class="bi bi-pencil"></i>
         </button>
-        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${product.id}">
+        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${product.idProducto || product.id}">
             <i class="bi bi-trash"></i>
         </button>
     </td>
@@ -169,14 +169,16 @@ function initModalLogic() {
         e.preventDefault();
 
         const payload = {
-            codigo: document.getElementById('inputCodigo').value.trim(),
             nombre: document.getElementById('inputNombre').value.trim(),
+            descripcion: document.getElementById('inputDescripcion').value.trim(),
+            marca: document.getElementById('inputMarca').value.trim(),
+            modelo: document.getElementById('inputModelo').value.trim(),
+            imei: document.getElementById('inputImei').value.trim(),
             categoria: document.getElementById('selectCategoria').value,
+            costo: Number(document.getElementById('inputCosto').value || 0),
+            precio: Number(document.getElementById('inputPrecio').value || 0),
             stock: Number(document.getElementById('inputStock').value || 0),
-            precioCompra: Number(document.getElementById('inputPrecioCompra').value || 0),
-            precioVenta: Number(document.getElementById('inputPrecioVenta').value || 0),
-            stockMinimo: Number(document.getElementById('inputStockMinimo').value || 5),
-            descripcion: document.getElementById('inputDescripcion').value.trim()
+            activo: document.getElementById('inputActivo').checked
         };
 
         try {
@@ -232,18 +234,21 @@ function initTableHandlers() {
 
         if (btnEdit) {
             const id = btnEdit.getAttribute('data-id');
-            const product = currentProducts.find(p => p.id == id);
+            const product = currentProducts.find(p => (p.idProducto || p.id) == id);
             if (product) {
                 editingProductId = id;
                 document.getElementById('modalProductTitle').textContent = 'Editar producto';
-                document.getElementById('inputCodigo').value = product.codigo || '';
                 document.getElementById('inputNombre').value = product.nombre || '';
-                document.getElementById('selectCategoria').value = product.categoria || '';
-                document.getElementById('inputStock').value = product.stock || 0;
-                document.getElementById('inputPrecioCompra').value = product.precioCompra || 0;
-                document.getElementById('inputPrecioVenta').value = product.precioVenta || 0;
-                document.getElementById('inputStockMinimo').value = product.stockMinimo || 5;
+                document.getElementById('inputCodigo').value = product.codigo || '';
                 document.getElementById('inputDescripcion').value = product.descripcion || '';
+                document.getElementById('inputMarca').value = product.marca || '';
+                document.getElementById('inputModelo').value = product.modelo || '';
+                document.getElementById('inputImei').value = product.imei || '';
+                document.getElementById('selectCategoria').value = product.categoria || '';
+                document.getElementById('inputCosto').value = product.costo || 0;
+                document.getElementById('inputPrecio').value = product.precio || 0;
+                document.getElementById('inputStock').value = product.stock || 0;
+                document.getElementById('inputActivo').checked = product.activo !== false;
                 modalInstance.show();
             }
         }

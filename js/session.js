@@ -71,7 +71,7 @@ export async function fetchUserProfileFromApi() {
     }
 
     const data = await res.json();
-    // Normaliza a un objeto de perfil simple
+    // Normaliza a un objeto de perfil simple según la estructura real del backend
     if (!data || !data.persona) throw new Error('Respuesta inválida de perfil');
     const persona = data.persona;
     const nombre = [
@@ -81,9 +81,19 @@ export async function fetchUserProfileFromApi() {
     ].map(s => s?.trim()).filter(Boolean).join(' ').trim();
 
     const profile = {
-        nombre,
-        nombreSimple: persona.nombre || nombre || '',
+        id: data.idUsuario,
+        email: data.email,
+        rol: data.rol,
+        nombre: persona.nombre || '',
+        primerApellido: persona.primerApellido || '',
+        segundoApellido: persona.segundoApellido || '',
+        nombreCompleto: nombre,
+        nombreSimple: persona.nombre || '',
         primeros: persona.nombre ? persona.nombre.charAt(0).toUpperCase() : (nombre ? nombre.charAt(0).toUpperCase() : 'U'),
+        telefono: persona.numeroTelefono,
+        idSucursal: data.sucursal?.idSucursal,
+        sucursalNombre: data.sucursal?.nombre,
+        sucursalKey: data.sucursal?.sucursalKey,
         raw: data
     };
 

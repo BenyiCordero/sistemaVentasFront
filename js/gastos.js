@@ -4,11 +4,12 @@ import { getUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const GET_EXPENSES_ENDPOINT = `${BASE_API_URL}/expenses`;
-const CREATE_EXPENSE_ENDPOINT = `${BASE_API_URL}/expenses`;
-const UPDATE_EXPENSE_ENDPOINT = (id) => `${BASE_API_URL}/expenses/${id}`;
-const DELETE_EXPENSE_ENDPOINT = (id) => `${BASE_API_URL}/expenses/${id}`;
-const GET_EXPENSES_SUMMARY_ENDPOINT = `${BASE_API_URL}/expenses/summary`;
+// Los gastos no tienen endpoint específico en el backend, usamos localStorage para demostración
+const GET_EXPENSES_ENDPOINT = null;
+const CREATE_EXPENSE_ENDPOINT = null;
+const UPDATE_EXPENSE_ENDPOINT = null;
+const DELETE_EXPENSE_ENDPOINT = null;
+const GET_EXPENSES_SUMMARY_ENDPOINT = null;
 
 const expensesTableBody = () => document.querySelector('#expensesTable tbody');
 const expensesEmpty = () => document.getElementById('expenses-empty');
@@ -117,94 +118,83 @@ function filterExpenses() {
 }
 
 async function fetchExpenses(filters = {}) {
-    const token = localStorage.getItem('authToken');
-    const queryParams = new URLSearchParams(filters).toString();
-    const url = `${GET_EXPENSES_ENDPOINT}${queryParams ? '?' + queryParams : ''}`;
-    
-    const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Usar localStorage para almacenamiento local de gastos (demostración)
+    try {
+        const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        return expenses;
+    } catch (e) {
+        console.warn('Error fetching expenses from localStorage:', e);
+        return [];
     }
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data?.expenses ?? data?.data ?? []);
 }
 
 async function fetchExpensesSummary() {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(GET_EXPENSES_SUMMARY_ENDPOINT, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Calcular resumen desde localStorage
+    try {
+        const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        const hoy = new Date();
+        const semanaAtras = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const mesAtras = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        const gastosHoy = expenses.filter(e => new Date(e.fecha) >= new Date(hoy.toDateString())).reduce((sum, e) => sum + e.monto, 0);
+        const gastosSemana = expenses.filter(e => new Date(e.fecha) >= semanaAtras).reduce((sum, e) => sum + e.monto, 0);
+        const gastosMes = expenses.filter(e => new Date(e.fecha) >= mesAtras).reduce((sum, e) => sum + e.monto, 0);
+        const promedio = expenses.length > 0 ? gastosMes / expenses.length : 0;
+        
+        return {
+            hoy: gastosHoy,
+            semana: gastosSemana,
+            mes: gastosMes,
+            promedio: promedio
+        };
+    } catch (e) {
+        return { hoy: 0, semana: 0, mes: 0, promedio: 0 };
     }
-    return await res.json();
 }
 
 async function createExpense(expensePayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(CREATE_EXPENSE_ENDPOINT, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(expensePayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Guardar en localStorage
+    try {
+        const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        const newExpense = {
+            ...expensePayload,
+            id: Date.now(),
+            createdAt: new Date().toISOString()
+        };
+        expenses.push(newExpense);
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        return newExpense;
+    } catch (e) {
+        throw new Error('No se pudo guardar el gasto localmente');
     }
-    return await res.json();
 }
 
 async function updateExpense(id, expensePayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(UPDATE_EXPENSE_ENDPOINT(id), {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(expensePayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Actualizar en localStorage
+    try {
+        const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        const index = expenses.findIndex(e => e.id == id);
+        if (index !== -1) {
+            expenses[index] = { ...expenses[index], ...expensePayload };
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+            return expenses[index];
+        }
+        throw new Error('Gasto no encontrado');
+    } catch (e) {
+        throw new Error('No se pudo actualizar el gasto');
     }
-    return await res.json();
 }
 
 async function deleteExpense(id) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(DELETE_EXPENSE_ENDPOINT(id), {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Eliminar de localStorage
+    try {
+        const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        const filteredExpenses = expenses.filter(e => e.id != id);
+        localStorage.setItem('expenses', JSON.stringify(filteredExpenses));
+        return true;
+    } catch (e) {
+        throw new Error('No se pudo eliminar el gasto');
     }
-    return true;
 }
 
 function initModalLogic() {

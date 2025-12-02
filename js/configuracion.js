@@ -4,10 +4,11 @@ import { getUserProfile, clearUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const UPDATE_PROFILE_ENDPOINT = `${BASE_API_URL}/profile`;
-const CHANGE_PASSWORD_ENDPOINT = `${BASE_API_URL}/profile/password`;
-const EXPORT_DATA_ENDPOINT = `${BASE_API_URL}/profile/export`;
-const DELETE_ACCOUNT_ENDPOINT = `${BASE_API_URL}/profile/delete`;
+// No hay endpoints específicos para perfil en el backend actual
+const UPDATE_PROFILE_ENDPOINT = null;
+const CHANGE_PASSWORD_ENDPOINT = null;
+const EXPORT_DATA_ENDPOINT = null;
+const DELETE_ACCOUNT_ENDPOINT = null;
 
 let currentUserProfile = null;
 let deleteModalInstance = null;
@@ -41,85 +42,54 @@ function loadUserProfileData(profile) {
 }
 
 async function updateProfile(profilePayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(UPDATE_PROFILE_ENDPOINT, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profilePayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Guardar preferencias en localStorage ya que no hay endpoint
+    try {
+        const preferences = {
+            ...JSON.parse(localStorage.getItem('userPreferences') || '{}'),
+            ...profilePayload
+        };
+        localStorage.setItem('userPreferences', JSON.stringify(preferences));
+        return preferences;
+    } catch (e) {
+        throw new Error('No se pudieron guardar las preferencias');
     }
-    return await res.json();
 }
 
 async function changePassword(passwordPayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(CHANGE_PASSWORD_ENDPOINT, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(passwordPayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
+    // No hay endpoint para cambiar contraseña
+    throw new Error('El cambio de contraseña no está disponible en el backend actual');
 }
 
 async function exportUserData() {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(EXPORT_DATA_ENDPOINT, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+    // Exportar datos locales como JSON
+    try {
+        const profile = await getUserProfile();
+        const preferences = JSON.parse(localStorage.getItem('userPreferences') || '{}');
+        const exportData = {
+            profile,
+            preferences,
+            exportDate: new Date().toISOString()
+        };
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `mis_datos_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+        
+        return true;
+    } catch (e) {
+        throw new Error('No se pudieron exportar los datos');
     }
-    
-    // Descargar el archivo
-    const blob = await res.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = `mis_datos_${new Date().toISOString().split('T')[0]}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(downloadUrl);
-    document.body.removeChild(a);
-    
-    return true;
 }
 
 async function deleteAccount() {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(DELETE_ACCOUNT_ENDPOINT, {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return true;
+    // No hay endpoint para eliminar cuenta
+    throw new Error('La eliminación de cuenta no está disponible en el backend actual');
 }
 
 function initProfileForm() {

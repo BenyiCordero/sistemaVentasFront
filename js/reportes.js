@@ -4,9 +4,9 @@ import { getUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const GET_REPORTS_ENDPOINT = `${BASE_API_URL}/reports`;
-const GENERATE_REPORT_ENDPOINT = `${BASE_API_URL}/reports/generate`;
-const GET_METRICS_ENDPOINT = `${BASE_API_URL}/reports/metrics`;
+const GET_REPORTS_ENDPOINT = `${BASE_API_URL}/sell`;
+const GENERATE_REPORT_ENDPOINT = `${BASE_API_URL}/sell`;
+const GET_METRICS_ENDPOINT = `${BASE_API_URL}/sell`;
 
 const reportsTableBody = () => document.querySelector('#reportsTable tbody');
 const reportsEmpty = () => document.getElementById('reports-empty');
@@ -246,8 +246,7 @@ function filterReports() {
 
 async function fetchReports(filters = {}) {
     const token = localStorage.getItem('authToken');
-    const queryParams = new URLSearchParams(filters).toString();
-    const url = `${GET_REPORTS_ENDPOINT}${queryParams ? '?' + queryParams : ''}`;
+    const url = `${GET_REPORTS_ENDPOINT}`;
     
     const res = await fetch(url, {
         method: 'GET',
@@ -262,13 +261,12 @@ async function fetchReports(filters = {}) {
         throw new Error(txt);
     }
     const data = await res.json();
-    return Array.isArray(data) ? data : (data?.reports ?? data?.data ?? []);
+    return Array.isArray(data) ? data : (data?.ventas ?? data?.data ?? []);
 }
 
 async function fetchMetrics(filters = {}) {
     const token = localStorage.getItem('authToken');
-    const queryParams = new URLSearchParams(filters).toString();
-    const url = `${GET_METRICS_ENDPOINT}${queryParams ? '?' + queryParams : ''}`;
+    const url = `${GET_METRICS_ENDPOINT}`;
     
     const res = await fetch(url, {
         method: 'GET',
@@ -282,31 +280,63 @@ async function fetchMetrics(filters = {}) {
         try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
         throw new Error(txt);
     }
-    return await res.json();
+    const data = await res.json();
+    
+    // Calcular métricas desde los datos de ventas
+    const ventas = Array.isArray(data) ? data : (data?.ventas ?? data?.data ?? []);
+    const totalIngresos = ventas.reduce((sum, venta) => sum + (venta.total || 0), 0);
+    const totalGastos = 0; // No hay endpoint de gastos, se puede implementar después
+    const balance = totalIngresos - totalGastos;
+    
+    return {
+        totalIngresos,
+        totalGastos,
+        balance,
+        totalTransacciones: ventas.length,
+        evolution: {
+            labels: ventas.slice(-7).map(v => new Date(v.fecha).toLocaleDateString()),
+            ingresos: ventas.slice(-7).map(v => v.total || 0),
+            gastos: [0, 0, 0, 0, 0, 0, 0] // Placeholder para gastos
+        },
+        distribution: {
+            labels: ['Ventas', 'Otros'],
+            values: [totalIngresos, 0]
+        }
+    };
 }
 
 async function generateReport(reportPayload) {
+    // Generar reporte CSV simple desde los datos de ventas
     const token = localStorage.getItem('authToken');
-    const res = await fetch(GENERATE_REPORT_ENDPOINT, {
-        method: 'POST',
+    const res = await fetch(`${BASE_API_URL}/sell`, {
+        method: 'GET',
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(reportPayload)
+        }
     });
+    
     if (!res.ok) {
         let txt = `Status ${res.status}`;
         try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
         throw new Error(txt);
     }
     
+    const data = await res.json();
+    const ventas = Array.isArray(data) ? data : (data?.ventas ?? data?.data ?? []);
+    
+    // Generar CSV
+    let csv = 'ID,Fecha,Cliente,Total,Estado\n';
+    ventas.forEach(venta => {
+        csv += `${venta.id},${new Date(venta.fecha).toLocaleDateString()},${venta.cliente || 'N/A'},${venta.total || 0},${venta.estado || 'Completado'}\n`;
+    });
+    
     // Descargar el archivo
-    const blob = await res.blob();
+    const blob = new Blob([csv], { type: 'text/csv' });
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = `reporte_${reportPayload.tipoReporte}_${new Date().toISOString().split('T')[0]}.${reportPayload.formato}`;
+    a.download = `reporte_ventas_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(downloadUrl);
