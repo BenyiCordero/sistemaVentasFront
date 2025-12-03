@@ -17,7 +17,6 @@ async function fetchDashboardMetrics() {
     }
 
     try {
-        // Obtener ventas de la sucursal
         const ventasResponse = await fetch(`${BASE_API_URL}/sell/sucursal/${profile.idSucursal}`, {
             method: 'GET',
             headers: {
@@ -47,7 +46,6 @@ async function fetchDashboardMetrics() {
             totalVentas = ventas.length;
         }
 
-        // Obtener gastos desde localStorage (ya que no hay endpoint)
         const gastos = JSON.parse(localStorage.getItem('expenses') || '[]');
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
