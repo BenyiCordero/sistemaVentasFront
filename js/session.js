@@ -1,11 +1,7 @@
 // js/session.js
-// Módulo responsable de obtener/guardar perfil de usuario (cache en localStorage).
-// Uso: import { getUserProfile, clearUserProfile } from './session.js'
-
 const BASE_API_URL = 'http://127.0.0.1:8081';
 const GET_NAME_API_URL = `${BASE_API_URL}/worker/getByEmail`;
 
-// Ajusta TTL según necesidad (por defecto 1 hora)
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const STORAGE_KEY = 'userProfileCache';
 
@@ -27,7 +23,6 @@ export function readProfileFromCache() {
         const parsed = JSON.parse(raw);
         if (!parsed?.ts || !parsed?.profile) return null;
         if ((now() - parsed.ts) > CACHE_TTL_MS) {
-            // expired
             localStorage.removeItem(STORAGE_KEY);
             return null;
         }
@@ -39,7 +34,6 @@ export function readProfileFromCache() {
     }
 }
 
-// fetch from API and store in cache
 export async function fetchUserProfileFromApi() {
     const authToken = localStorage.getItem('authToken');
     const email = localStorage.getItem('email');
@@ -58,7 +52,6 @@ export async function fetchUserProfileFromApi() {
     });
 
     if (!res.ok) {
-        // intenta extraer mensaje útil
         let txt = `Status ${res.status}`;
         try {
             const obj = await res.json();
@@ -71,7 +64,6 @@ export async function fetchUserProfileFromApi() {
     }
 
     const data = await res.json();
-    // Normaliza a un objeto de perfil simple según la estructura real del backend
     if (!data || !data.persona) throw new Error('Respuesta inválida de perfil');
     const persona = data.persona;
     const nombre = [
@@ -101,13 +93,11 @@ export async function fetchUserProfileFromApi() {
     return profile;
 }
 
-// función pública: devuelve perfil (desde cache si está fresco, sino fetch)
 export async function getUserProfile({ forceRefresh = false } = {}) {
     if (!forceRefresh) {
         const cached = readProfileFromCache();
         if (cached) return cached;
     }
-    // si no hay cache o se forzó refresh -> fetch
     const profile = await fetchUserProfileFromApi();
     return profile;
 }

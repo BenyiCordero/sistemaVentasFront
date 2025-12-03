@@ -34,7 +34,7 @@ async function initPartials() {
         if(profile){
             const nombreTop = document.getElementById('nombre-top');
             const letraIcon = document.getElementById('letra-icon');
-            if (nombreTop) nombreTop.textContent = profile.nombre || profile.nombreSimple || 'Usuario';
+            if (nombreTop) nombreTop.textContent = profile.nombre + " " + profile.primerApellido + " " + profile.segundoApellido;
             if (letraIcon) letraIcon.textContent = profile.primeros || (profile.nombreSimple?.charAt(0)?.toUpperCase()) || 'U';
         }
     } catch(e){

@@ -65,8 +65,8 @@ function filterProducts() {
     let filtered = currentProducts.filter(product => {
         const matchesSearch = !searchTerm || 
             (product.nombre?.toLowerCase().includes(searchTerm) || 
-             product.codigo?.toLowerCase().includes(searchTerm));
-        
+                product.codigo?.toLowerCase().includes(searchTerm));
+
         const matchesCategory = !categoryFilter || product.categoria === categoryFilter;
         
         const status = getStockStatus(product.stock, product.stockMinimo);
@@ -154,6 +154,10 @@ async function deleteProduct(id) {
 
 function initModalLogic() {
     const modalEl = document.getElementById('modalProduct');
+    if (!modalEl) {
+        console.warn('modalProduct no encontrado en el DOM');
+        return;
+    }
     modalInstance = new bootstrap.Modal(modalEl);
 
     document.getElementById('btnOpenNewProduct').addEventListener('click', () => {
@@ -161,7 +165,10 @@ function initModalLogic() {
         document.getElementById('modalProductTitle').textContent = 'Nuevo producto';
         document.getElementById('formProduct').reset();
         document.getElementById('inputStock').value = '0';
-        document.getElementById('inputStockMinimo').value = '5';
+
+        const stockMinEl = document.getElementById('inputStockMinimo');
+        if (stockMinEl) stockMinEl.value = '5';
+
         modalInstance.show();
     });
 

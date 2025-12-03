@@ -4,12 +4,11 @@ import { getUserProfile } from './session.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-// Los usuarios se gestionan a través del endpoint /auth/register y /worker
 const GET_USERS_ENDPOINT = `${BASE_API_URL}/worker`;
 const CREATE_USER_ENDPOINT = `${BASE_API_URL}/auth/register`;
 const UPDATE_USER_ENDPOINT = (id) => `${BASE_API_URL}/worker/${id}`;
 const DELETE_USER_ENDPOINT = (id) => `${BASE_API_URL}/worker/${id}`;
-const CHANGE_PASSWORD_ENDPOINT = null; // No hay endpoint específico para cambiar contraseña
+const CHANGE_PASSWORD_ENDPOINT = null;
 
 const usersTableBody = () => document.querySelector('#usersTable tbody');
 const usersEmpty = () => document.getElementById('users-empty');
@@ -105,7 +104,6 @@ function filterUsers() {
 }
 
 async function fetchUsers() {
-    // Obtener usuario actual ya que no hay endpoint para listar todos los usuarios
     const token = localStorage.getItem('authToken');
     const email = localStorage.getItem('email');
     
@@ -126,7 +124,7 @@ async function fetchUsers() {
         throw new Error(txt);
     }
     const data = await res.json();
-    return [data]; // Devolver array con el usuario actual
+    return [data]; 
 }
 
 async function createUser(userPayload) {
@@ -148,17 +146,14 @@ async function createUser(userPayload) {
 }
 
 async function updateUser(id, userPayload) {
-    // El backend no tiene endpoint para actualizar usuarios
     throw new Error('La actualización de usuarios no está disponible en el backend actual');
 }
 
 async function deleteUser(id) {
-    // El backend no tiene endpoint para eliminar usuarios
     throw new Error('La eliminación de usuarios no está disponible en el backend actual');
 }
 
 async function changeUserPassword(id, passwordPayload) {
-    // El backend no tiene endpoint específico para cambiar contraseña
     throw new Error('El cambio de contraseña no está disponible en el backend actual');
 }
 
@@ -195,13 +190,11 @@ function initModalLogic() {
             notas: document.getElementById('inputNotas').value.trim()
         };
 
-        // Solo incluir contraseña en creación o si se proporciona
         const password = document.getElementById('inputPassword').value;
         if (password) {
             payload.password = password;
         }
 
-        // Validar contraseñas si se proporcionan
         if (password && password !== document.getElementById('inputConfirmPassword').value) {
             displayError('Las contraseñas no coinciden.');
             return;
@@ -308,7 +301,6 @@ function initTableHandlers() {
                 document.getElementById('selectEstado').value = user.estado || 'activo';
                 document.getElementById('inputNotas').value = user.notas || '';
                 
-                // Ocultar campos de contraseña en edición
                 document.getElementById('passwordField').style.display = 'none';
                 document.getElementById('confirmPasswordField').style.display = 'none';
                 document.getElementById('inputPassword').required = false;
