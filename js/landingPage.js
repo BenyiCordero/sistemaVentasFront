@@ -1,6 +1,6 @@
 // js/landingPage.js
 import { getUserProfile } from './session.js';
-import { displayError, displayMessage } from './utils.js';
+import { notifySuccess, notifyError } from './utils.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
@@ -10,14 +10,18 @@ let clienteModalInstance = null;
 async function fetchDashboardMetrics() {
     const token = localStorage.getItem('authToken');
     const profile = await getUserProfile();
+
+    let ingresos = 0;
+    let gastos = 0;
+    let compras = 0;
     
     if (!profile?.idSucursal) {
         console.warn('No hay sucursal asignada al usuario');
-        return { ingresos: 0, gastos: 0, totalVentas: 0, totalCreditos: 0 };
+        return { ingresos: 0, gastos: 0, compras : 0 };
     }
 
     try {
-        const ventasResponse = await fetch(`${BASE_API_URL}/sell/sucursal/${profile.idSucursal}`, {
+        const ventasResponse = await fetch(`${BASE_API_URL}/sell/total-mes`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -25,69 +29,45 @@ async function fetchDashboardMetrics() {
             }
         });
 
-        let ingresos = 0;
-        let totalVentas = 0;
-        
         if (ventasResponse.ok) {
-            const ventasData = await ventasResponse.json();
-            const ventas = Array.isArray(ventasData) ? ventasData : (ventasData?.ventas ?? ventasData?.data ?? []);
-            
-            // Calcular ingresos del mes actual
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            
-            ventas.forEach(venta => {
-                const ventaDate = new Date(venta.fecha);
-                if (ventaDate.getMonth() === currentMonth && ventaDate.getFullYear() === currentYear) {
-                    ingresos += venta.totalVenta || venta.total || 0;
-                }
-            });
-            
-            totalVentas = ventas.length;
+            ingresos = await ventasResponse.json();
         }
 
-        const gastos = JSON.parse(localStorage.getItem('expenses') || '[]');
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        
-        let gastosMes = 0;
-        gastos.forEach(gasto => {
-            const gastoDate = new Date(gasto.fecha);
-            if (gastoDate.getMonth() === currentMonth && gastoDate.getFullYear() === currentYear) {
-                gastosMes += gasto.monto || 0;
+        /*
+        const gastosResponse = await fetch(`${BASE_API_URL}/sell/total-mes`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
 
-        // Obtener créditos
-        let totalCreditos = 0;
-        try {
-            const creditosResponse = await fetch(`${BASE_API_URL}/api/v1/creditos`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+        if (gastosResponse.ok) {
+            gastos = await ventasResponse.json();
+        }
+        */
 
-            if (creditosResponse.ok) {
-                const creditosData = await creditosResponse.json();
-                const creditos = Array.isArray(creditosData) ? creditosData : (creditosData?.creditos ?? creditosData?.data ?? []);
-                totalCreditos = creditos.length;
+        const comprasResponse = await fetch(`${BASE_API_URL}/inventoryDetails/total-mes`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
-        } catch (e) {
-            console.warn('Error obteniendo créditos:', e);
+        });
+
+        if (comprasResponse.ok) {
+            compras = await ventasResponse.json();
         }
 
         return {
             ingresos,
-            gastos: gastosMes,
-            totalVentas,
-            totalCreditos
+            gastos,
+            compras
         };
 
     } catch (error) {
         console.error('Error fetching dashboard metrics:', error);
-        return { ingresos: 0, gastos: 0, totalVentas: 0, totalCreditos: 0 };
+        return { ingresos: 0, gastos: 0, compras: 0 };
     }
 }
 
@@ -106,11 +86,11 @@ async function updateDashboardUI() {
             if (letraIcon) letraIcon.textContent = profile.primeros || (profile.nombreSimple?.charAt(0)?.toUpperCase()) || 'U';
         }
 
-        // Obtener y actualizar métricas del dashboard
         const metrics = await fetchDashboardMetrics();
         
         const ingresoTotalEl = document.getElementById('ingreso-total');
         const gastoTotalEl = document.getElementById('gasto-total');
+        const comprasTotalEl = document.getElementById('compras-total');
         
         if (ingresoTotalEl) {
             ingresoTotalEl.textContent = `$${Number(metrics.ingresos).toFixed(2)}`;
@@ -120,43 +100,53 @@ async function updateDashboardUI() {
             gastoTotalEl.textContent = `$${Number(metrics.gastos).toFixed(2)}`;
         }
 
-        // Opcional: mostrar métricas adicionales si existen los elementos
-        const totalVentasEl = document.getElementById('total-ventas');
-        const totalCreditosEl = document.getElementById('total-creditos');
-        
-        if (totalVentasEl) totalVentasEl.textContent = metrics.totalVentas;
-        if (totalCreditosEl) totalCreditosEl.textContent = metrics.totalCreditos;
+        if (comprasTotalEl) {
+            comprasTotalEl.textContent = `$${Number(metrics.compras).toFixed(2)}`;
+        }
 
     } catch (e) {
         console.error('initLanding error', e);
-        if (typeof displayError === 'function') displayError('No se pudo cargar información del dashboard.');
+        notifyError('No se pudo cargar información del dashboard.');
     }
-}
-
-async function initLanding() {
-    await updateDashboardUI();
-    
-    // Actualizar cada 30 segundos para mantener datos frescos
-    setInterval(updateDashboardUI, 30000);
 }
 
 function initSucursalModal() {
     const modalEl = document.getElementById('modalSucursal');
+    if (!modalEl) {
+        console.warn('initSucursalModal: modalSucursal no encontrado en el DOM.');
+        return;
+    }
+
     sucursalModalInstance = new bootstrap.Modal(modalEl);
 
-    document.getElementById('formSucursal').addEventListener('submit', async (e) => {
+    const formEl = document.getElementById('formSucursal');
+    if (!formEl) {
+        console.warn('initSucursalModal: formSucursal no encontrado en el DOM. No se adjuntará submit handler.');
+        return;
+    }
+
+    if (formEl._sucursalSubmitHandler) {
+        try { formEl.removeEventListener('submit', formEl._sucursalSubmitHandler); } catch (e) { /* ignore */ }
+    }
+
+    const submitHandler = async function (e) {
         e.preventDefault();
+        e.stopPropagation();
 
         const payload = {
-            nombre: document.getElementById('inputSucursalNombre').value.trim(),
-            sucursalKey: document.getElementById('inputSucursalKey').value.trim(),
-            activo: document.getElementById('inputSucursalActivo').checked
+            activo: document.getElementById('inputSucursalActivo')?.checked || false,
+            nombre: document.getElementById('inputSucursalNombre')?.value.trim() || '',
+            sucursalKey: document.getElementById('inputSucursalKey')?.value.trim() || '',
         };
 
+        console.log('Crear sucursal payload:', payload);
+
+        const btn = document.getElementById('btnSubmitSucursal');
         try {
-            const btn = document.getElementById('btnSubmitSucursal');
-            btn.disabled = true;
-            btn.textContent = 'Creando...';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Creando...';
+            }
 
             const token = localStorage.getItem('authToken');
             const res = await fetch(`${BASE_API_URL}/sucursal/save`, {
@@ -170,50 +160,72 @@ function initSucursalModal() {
 
             if (!res.ok) {
                 let txt = `Status ${res.status}`;
-                try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+                try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (err) { const t = await res.text(); if (t) txt = t; }
                 throw new Error(txt);
             }
 
-            displayMessage && displayMessage('Sucursal creada correctamente.');
-            sucursalModalInstance.hide();
-            document.getElementById('formSucursal').reset();
-            
-            // Actualizar perfil del usuario para que tenga la nueva sucursal
+            notifySuccess('Sucursal creada correctamente.');
+
+            try { formEl.reset(); } catch (err) { console.warn('form reset falló:', err); }
+
+            if (sucursalModalInstance && typeof sucursalModalInstance.hide === 'function') {
+                sucursalModalInstance.hide();
+            }
+
             const updatedProfile = await getUserProfile({ forceRefresh: true });
             if (updatedProfile?.idSucursal) {
-                displayMessage && displayMessage('Sucursal asignada a tu perfil correctamente.');
+                notifySuccess('Sucursal asignada a tu perfil correctamente.');
             }
 
         } catch (err) {
             console.error('createSucursal error', err);
-            displayError(`No se pudo crear la sucursal: ${err.message || err}`);
+            notifyError(`No se pudo crear la sucursal: ${err.message || err}`);
         } finally {
-            const btn = document.getElementById('btnSubmitSucursal');
-            btn.disabled = false;
-            btn.textContent = 'Crear Sucursal';
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Crear Sucursal';
+            }
         }
-    });
+    };
+
+    formEl._sucursalSubmitHandler = submitHandler;
+    formEl.addEventListener('submit', submitHandler);
 }
 
 function initClienteModal() {
     const modalEl = document.getElementById('modalCliente');
+    if (!modalEl) {
+        console.warn('initClienteModal: modalCliente no encontrado en DOM.');
+        return;
+    }
     clienteModalInstance = new bootstrap.Modal(modalEl);
 
-    document.getElementById('formCliente').addEventListener('submit', async (e) => {
+    const formCliente = document.getElementById('formCliente');
+    if (!formCliente) {
+        console.warn('initClienteModal: formCliente no encontrado en DOM.');
+        return;
+    }
+
+    if (formCliente._submitHandler) {
+        try { formCliente.removeEventListener('submit', formCliente._submitHandler); } catch (e) { /* ignore */ }
+    }
+
+    const handler = async (e) => {
         e.preventDefault();
+        e.stopPropagation();
 
         const payload = {
-            nombre: document.getElementById('inputClienteNombre').value.trim(),
-            primerApellido: document.getElementById('inputClientePrimerApellido').value.trim(),
-            segundoApellido: document.getElementById('inputClienteSegundoApellido').value.trim(),
-            numeroTelefono: document.getElementById('inputClienteTelefono').value.trim(),
-            creditoActivo: document.getElementById('inputClienteCredito').checked
+            nombre: document.getElementById('inputClienteNombre')?.value.trim() || '',
+            primerApellido: document.getElementById('inputClientePrimerApellido')?.value.trim() || '',
+            segundoApellido: document.getElementById('inputClienteSegundoApellido')?.value.trim() || '',
+            numeroTelefono: document.getElementById('inputClienteTelefono')?.value.trim() || '',
+            creditoActivo: document.getElementById('inputClienteCredito')?.checked || false
         };
 
+        let btn = document.getElementById('btnSubmitCliente');
+
         try {
-            const btn = document.getElementById('btnSubmitCliente');
-            btn.disabled = true;
-            btn.textContent = 'Creando...';
+            if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
 
             const token = localStorage.getItem('authToken');
             const res = await fetch(`${BASE_API_URL}/client`, {
@@ -227,31 +239,34 @@ function initClienteModal() {
 
             if (!res.ok) {
                 let txt = `Status ${res.status}`;
-                try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+                try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (err) { const t = await res.text(); if (t) txt = t; }
                 throw new Error(txt);
             }
 
-            displayMessage && displayMessage('Cliente creado correctamente.');
-            clienteModalInstance.hide();
-            document.getElementById('formCliente').reset();
+            try { notifySuccess('Cliente creado correctamente.'); } catch (e) { console.log('Cliente creado correctamente.'); }
+
+            try { formCliente.reset(); } catch (err) { console.warn('formCliente reset falló:', err); }
+
+            try { if (clienteModalInstance && typeof clienteModalInstance.hide === 'function') clienteModalInstance.hide(); } catch (err) { console.warn('No se pudo ocultar clienteModalInstance:', err); }
 
         } catch (err) {
             console.error('createCliente error', err);
-            displayError(`No se pudo crear el cliente: ${err.message || err}`);
+            try { notifyError(`No se pudo crear el cliente: ${err.message || err}`); } catch (e) { console.error(`No se pudo crear el cliente: ${err.message || err}`); }
         } finally {
-            const btn = document.getElementById('btnSubmitCliente');
-            btn.disabled = false;
-            btn.textContent = 'Crear Cliente';
+            if (btn) { btn.disabled = false; btn.textContent = 'Crear Cliente'; }
         }
-    });
+    };
+
+    formCliente._submitHandler = handler;
+    formCliente.addEventListener('submit', handler);
 }
+
 
 async function initLanding() {
     await updateDashboardUI();
     initSucursalModal();
     initClienteModal();
     
-    // Actualizar cada 30 segundos para mantener datos frescos
     setInterval(updateDashboardUI, 30000);
 }
 
