@@ -7,13 +7,13 @@ const BASE_API_URL = 'http://127.0.0.1:8081';
 const GET_USERS_ENDPOINT = `${BASE_API_URL}/worker`;
 const CREATE_USER_ENDPOINT = `${BASE_API_URL}/auth/register`;
 const UPDATE_USER_ENDPOINT = (id) => `${BASE_API_URL}/worker/${id}`;
-const DELETE_USER_ENDPOINT = (id) => `${BASE_API_URL}/worker/${id}`;
-const CHANGE_PASSWORD_ENDPOINT = null;
+const GET_SUCURSALES_ENDPOINT = `${BASE_API_URL}/sucursal`;
 
 const usersTableBody = () => document.querySelector('#usersTable tbody');
 const usersEmpty = () => document.getElementById('users-empty');
 
 let currentUsers = [];
+let sucursales = [];
 let modalInstance = null;
 let passwordModalInstance = null;
 let editingUserId = null;
@@ -21,314 +21,408 @@ let changingPasswordUserId = null;
 
 function getRoleBadge(role) {
     const badges = {
-        'admin': { text: 'Administrador', class: 'danger' },
-        'vendedor': { text: 'Vendedor', class: 'primary' },
-        'inventario': { text: 'Inventario', class: 'info' },
-        'reportes': { text: 'Reportes', class: 'warning' }
+        'ROLE_ADMIN': { text: 'ADMINISTRADOR', class: 'danger' },
+        'ROLE_GERENTE': { text: 'GERENTE', class: 'primary' },
+        'ROLE_VENDEDOR': { text: 'VENDEDOR', class: 'success' },
     };
-    const badge = badges[role] || { text: role, class: 'secondary' };
-    return `<span class="badge bg-${badge.class}">${badge.text}</span>`;
-}
 
-function getStatusBadge(status) {
-    const badges = {
-        'activo': { text: 'Activo', class: 'success' },
-        'inactivo': { text: 'Inactivo', class: 'secondary' },
-        'suspendido': { text: 'Suspendido', class: 'danger' }
-    };
-    const badge = badges[status] || { text: status, class: 'secondary' };
+    const badge = badges[role] || { text: role || 'N/A', class: 'secondary' };
     return `<span class="badge bg-${badge.class}">${badge.text}</span>`;
 }
 
 function renderUserRow(user) {
+    const id = user.idUsuario ?? user.id ?? '';
+    const nombreCompleto = [user.nombre, user.primerApellido].filter(Boolean).join(' ');
+
     const tr = document.createElement('tr');
-    const nombreCompleto = [user.nombre, user.primerApellido, user.segundoApellido]
-        .filter(Boolean).join(' ');
-    const fechaRegistro = new Date(user.createdAt || user.fechaRegistro || Date.now()).toLocaleDateString();
-    
     tr.innerHTML = `
-    <td>${user.id ?? ''}</td>
-    <td>${nombreCompleto}</td>
-    <td>${user.email ?? ''}</td>
-    <td>${user.telefono || 'N/A'}</td>
-    <td>${getRoleBadge(user.rol)}</td>
-    <td>${getStatusBadge(user.estado)}</td>
-    <td>${fechaRegistro}</td>
-    <td>
-        <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${user.id}">
-            <i class="bi bi-pencil"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-warning btn-password me-1" data-id="${user.id}" data-name="${nombreCompleto}">
-            <i class="bi bi-key"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${user.id}" data-name="${nombreCompleto}">
-            <i class="bi bi-trash"></i>
-        </button>
-    </td>
+        <td>${id}</td>
+        <td>${nombreCompleto}</td>
+        <td>${user.email ?? ''}</td>
+        <td>${user.numeroTelefono ?? ''}</td>
+        <td>${getRoleBadge(user.rol ?? '')}</td>
+        <td>${user.sucursalNombre ?? ''}</td>
+        <td>
+            <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${id}">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-warning btn-password me-1 disabled" data-id="${id}" data-name="${nombreCompleto}">
+                <i class="bi bi-key"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger btn-delete disabled" data-id="${id}" data-name="${nombreCompleto}">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
     `;
     return tr;
 }
 
 function renderUsersTable(users) {
-    const tbody = usersTableBody();
-    tbody.innerHTML = '';
-    if (!users || users.length === 0) {
-        usersEmpty().classList.remove('d-none');
+    const tbodyEl = usersTableBody();
+    const emptyEl = usersEmpty();
+
+    if (!tbodyEl || !emptyEl) {
+        console.error('Tabla de usuarios o elemento "users-empty" no encontrados en el DOM.');
         return;
     }
-    usersEmpty().classList.add('d-none');
-    users.forEach(user => tbody.appendChild(renderUserRow(user)));
+
+    tbodyEl.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        emptyEl.classList.remove('d-none');
+        return;
+    }
+
+    emptyEl.classList.add('d-none');
+    users.forEach(u => tbodyEl.appendChild(renderUserRow(u)));
 }
 
 function filterUsers() {
-    const searchTerm = document.getElementById('inputSearch').value.toLowerCase();
-    const roleFilter = document.getElementById('selectRole').value;
-    const statusFilter = document.getElementById('selectStatus').value;
+    const inputSearch = document.getElementById('inputSearch');
+    const selectRole = document.getElementById('selectRole');
 
-    let filtered = currentUsers.filter(user => {
-        const nombreCompleto = [user.nombre, user.primerApellido, user.segundoApellido]
-            .filter(Boolean).join(' ').toLowerCase();
-        
-        const matchesSearch = !searchTerm || 
-            nombreCompleto.includes(searchTerm) || 
+    const searchTerm = (inputSearch?.value ?? '').toLowerCase().trim();
+    const roleFilter = selectRole?.value ?? '';
+
+    const filtered = currentUsers.filter(user => {
+        const persona = user.persona ?? {};
+
+        const nombreCompleto = [
+            persona.nombre ?? user.nombre,
+            persona.primerApellido ?? user.primerApellido,
+            persona.segundoApellido ?? user.segundoApellido
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        const matchesSearch =
+            !searchTerm ||
+            nombreCompleto.includes(searchTerm) ||
             (user.email?.toLowerCase().includes(searchTerm)) ||
-            (user.id?.toString().includes(searchTerm));
-        
-        const matchesRole = !roleFilter || user.rol === roleFilter;
-        const matchesStatus = !statusFilter || user.estado === statusFilter;
+            ((user.idUsuario ?? user.id ?? '').toString().includes(searchTerm));
 
-        return matchesSearch && matchesRole && matchesStatus;
+        const matchesRole = !roleFilter || (user.rol === roleFilter);
+
+        return matchesSearch && matchesRole;
     });
 
     renderUsersTable(filtered);
 }
 
-async function fetchUsers() {
+function buildHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
     const token = localStorage.getItem('authToken');
-    const email = localStorage.getItem('email');
-    
-    if (!email) {
-        return [];
-    }
-    
-    const res = await fetch(`${GET_USERS_ENDPOINT}/getByEmail?email=${encodeURIComponent(email)}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    const data = await res.json();
-    return [data]; 
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
 }
 
-async function createUser(userPayload) {
-    const token = localStorage.getItem('authToken');
+async function parseErrorBody(res) {
+    try {
+        const cloned = res.clone();
+        const obj = await cloned.json();
+        if (obj && (obj.message || Object.keys(obj).length)) return obj.message || JSON.stringify(obj);
+    } catch (_) {
+    }
+    try {
+        const cloned2 = res.clone();
+        const txt = await cloned2.text();
+        if (txt) return txt;
+    } catch (_) {
+    }
+    return `Status ${res.status}`;
+}
+
+async function fetchAllUsers() {
+    try {
+        const res = await fetch(GET_USERS_ENDPOINT, {
+            method: 'GET',
+            headers: buildHeaders()
+        });
+
+        if (!res.ok) {
+            const txt = await parseErrorBody(res);
+            throw new Error(txt);
+        }
+
+        const data = await res.json();
+        const usersArray = Array.isArray(data) ? data : [data];
+        return usersArray.map(u => normalizeWorker(u));
+    } catch (err) {
+        throw err;
+    }
+}
+
+function normalizeWorker(u) {
+    const usuario = { ...u };
+
+    if (!usuario.idUsuario) usuario.idUsuario = usuario.id ?? null;
+
+    if (usuario.persona) {
+        usuario.nombre = usuario.nombre ?? usuario.persona.nombre;
+        usuario.primerApellido = usuario.primerApellido ?? usuario.persona.primerApellido;
+        usuario.segundoApellido = usuario.segundoApellido ?? usuario.persona.segundoApellido;
+        usuario.numeroTelefono = usuario.numeroTelefono ?? usuario.persona.numeroTelefono;
+    }
+
+    usuario.sucursalNombre = usuario.sucursalNombre ||
+        usuario.nombreSucursal ||
+        (usuario.sucursal?.nombre) ||
+        (usuario.sucursal?.sucursalNombre) || '';
+
+    usuario.idSucursal = usuario.idSucursal ??
+        (usuario.sucursal?.idSucursal) ??
+        (usuario.sucursal?.id) ?? null;
+
+    if (usuario.rol && typeof usuario.rol !== 'string') {
+        usuario.rol = usuario.rol.name ?? String(usuario.rol);
+    }
+
+    return usuario;
+}
+
+async function fetchSucursales() {
+    try {
+        const res = await fetch(GET_SUCURSALES_ENDPOINT, {
+            method: 'GET',
+            headers: buildHeaders()
+        });
+
+        if (!res.ok) {
+            const txt = await parseErrorBody(res);
+            throw new Error(txt);
+        }
+
+        const data = await res.json();
+        sucursales = Array.isArray(data) ? data : [];
+        populateSucursalSelect();
+    } catch (err) {
+        console.warn('No se pudieron cargar sucursales:', err.message);
+        sucursales = [];
+        populateSucursalSelect();
+    }
+}
+
+function populateSucursalSelect() {
+    const select = document.getElementById('selectSucursal');
+    if (!select) return;
+
+    const prev = select.value;
+    select.innerHTML = `<option value="">Seleccionar sucursal</option>`;
+
+    sucursales.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id ?? s.idSucursal ?? '';
+        opt.textContent = s.nombre ?? s.nombreSucursal ?? `Sucursal ${opt.value}`;
+        select.appendChild(opt);
+    });
+
+    if (prev) select.value = prev;
+}
+
+async function createUser(payload) {
+    if (payload.sucursal) {
+        payload.idSucursal = parseInt(payload.sucursal);
+        delete payload.sucursal;
+    }
+
     const res = await fetch(CREATE_USER_ENDPOINT, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(userPayload)
+        headers: buildHeaders(),
+        body: JSON.stringify(payload)
     });
+
     if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        const txt = await parseErrorBody(res);
         throw new Error(txt);
     }
+
     return await res.json();
 }
 
-async function updateUser(id, userPayload) {
-    throw new Error('La actualización de usuarios no está disponible en el backend actual');
+async function updateUser(id, payload) {
+    const body = {
+        nombre: payload.nombre,
+        primerApellido: payload.primerApellido,
+        segundoApellido: payload.segundoApellido,
+        numeroTelefono: payload.numeroTelefono,
+        rol: payload.rol,
+        idSucursal: payload.sucursal ? parseInt(payload.sucursal) : null
+    };
+
+    const res = await fetch(UPDATE_USER_ENDPOINT(id), {
+        method: 'PUT',
+        headers: buildHeaders(),
+        body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const txt = await parseErrorBody(res);
+        throw new Error(txt);
+    }
+
+    return await res.json();
 }
 
-async function deleteUser(id) {
+async function deleteUser() {
     throw new Error('La eliminación de usuarios no está disponible en el backend actual');
 }
-
-async function changeUserPassword(id, passwordPayload) {
+async function changeUserPassword() {
     throw new Error('El cambio de contraseña no está disponible en el backend actual');
 }
 
 function initModalLogic() {
     const modalEl = document.getElementById('modalUser');
+    if (!modalEl) {
+        console.warn('modalUser no existe en el DOM. Omitiendo lógica de modales.');
+        return;
+    }
+
     modalInstance = new bootstrap.Modal(modalEl);
 
     const passwordModalEl = document.getElementById('modalChangePassword');
-    passwordModalInstance = new bootstrap.Modal(passwordModalEl);
+    if (passwordModalEl) passwordModalInstance = new bootstrap.Modal(passwordModalEl);
 
-    document.getElementById('btnOpenNewUser').addEventListener('click', () => {
-        editingUserId = null;
-        document.getElementById('modalUserTitle').textContent = 'Nuevo usuario';
-        document.getElementById('formUser').reset();
-        document.getElementById('selectEstado').value = 'activo';
-        document.getElementById('passwordField').style.display = 'block';
-        document.getElementById('confirmPasswordField').style.display = 'block';
-        document.getElementById('inputPassword').required = true;
-        document.getElementById('inputConfirmPassword').required = true;
-        modalInstance.show();
-    });
+    const btnOpenNewUser = document.getElementById('btnOpenNewUser');
 
-    document.getElementById('formUser').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    if (btnOpenNewUser) {
+        btnOpenNewUser.addEventListener('click', async () => {
+            editingUserId = null;
+            const titleEl = document.getElementById('modalUserTitle');
+            titleEl && (titleEl.textContent = 'Nuevo usuario');
 
-        const payload = {
-            nombre: document.getElementById('inputNombre').value.trim(),
-            primerApellido: document.getElementById('inputPrimerApellido').value.trim(),
-            segundoApellido: document.getElementById('inputSegundoApellido').value.trim(),
-            email: document.getElementById('inputEmail').value.trim(),
-            telefono: document.getElementById('inputTelefono').value.trim(),
-            rol: document.getElementById('selectRol').value,
-            estado: document.getElementById('selectEstado').value,
-            notas: document.getElementById('inputNotas').value.trim()
-        };
+            const form = document.getElementById('formUser');
+            form && form.reset();
 
-        const password = document.getElementById('inputPassword').value;
-        if (password) {
-            payload.password = password;
-        }
+            if (!sucursales.length) await fetchSucursales().catch(() => {});
 
-        if (password && password !== document.getElementById('inputConfirmPassword').value) {
-            displayError('Las contraseñas no coinciden.');
-            return;
-        }
+            document.getElementById('passwordField') && (document.getElementById('passwordField').style.display = 'block');
+            document.getElementById('confirmPasswordField') && (document.getElementById('confirmPasswordField').style.display = 'block');
 
-        try {
-            const btn = document.getElementById('btnSubmitUser');
-            btn.disabled = true;
-            btn.textContent = editingUserId ? 'Actualizando...' : 'Guardando...';
+            const ip = document.getElementById('inputPassword');
+            const ic = document.getElementById('inputConfirmPassword');
+            if (ip) ip.required = true;
+            if (ic) ic.required = true;
 
-            if (editingUserId) {
-                await updateUser(editingUserId, payload);
-                displayMessage && displayMessage('Usuario actualizado correctamente.');
-            } else {
-                await createUser(payload);
-                displayMessage && displayMessage('Usuario creado correctamente.');
+            modalInstance.show();
+        });
+    }
+
+    const formUser = document.getElementById('formUser');
+    if (formUser) {
+        formUser.addEventListener('submit', async e => {
+            e.preventDefault();
+
+            const payload = {
+                nombre: document.getElementById('inputNombre')?.value.trim() ?? '',
+                primerApellido: document.getElementById('inputPrimerApellido')?.value.trim() ?? '',
+                segundoApellido: document.getElementById('inputSegundoApellido')?.value.trim() ?? '',
+                email: document.getElementById('inputEmail')?.value.trim() ?? '',
+                numeroTelefono: document.getElementById('inputTelefono')?.value.trim() ?? '',
+                rol: document.getElementById('selectRol')?.value ?? '',
+                sucursal: document.getElementById('selectSucursal')?.value ?? null
+            };
+
+            const password = document.getElementById('inputPassword')?.value ?? '';
+
+            if (password) {
+                const confirm = document.getElementById('inputConfirmPassword')?.value ?? '';
+                if (password !== confirm) {
+                    displayError('Las contraseñas no coinciden.');
+                    return;
+                }
+                payload.password = password;
             }
 
-            modalInstance.hide();
-            await loadUsers();
-        } catch (err) {
-            console.error('saveUser error', err);
-            displayError(`No se pudo guardar el usuario: ${err.message || err}`);
-        } finally {
-            const btn = document.getElementById('btnSubmitUser');
-            btn.disabled = false;
-            btn.textContent = 'Guardar usuario';
-        }
-    });
+            try {
+                const btn = document.getElementById('btnSubmitUser');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = editingUserId ? 'Actualizando...' : 'Guardando...';
+                }
 
-    document.getElementById('formChangePassword').addEventListener('submit', async (e) => {
-        e.preventDefault();
+                if (editingUserId) {
+                    await updateUser(editingUserId, payload);
+                    displayMessage('Usuario actualizado correctamente.');
+                } else {
+                    await createUser(payload);
+                    displayMessage('Usuario creado correctamente.');
+                }
 
-        const newPassword = document.getElementById('inputNewPassword').value;
-        const confirmPassword = document.getElementById('inputConfirmNewPassword').value;
-
-        if (newPassword !== confirmPassword) {
-            displayError('Las contraseñas no coinciden.');
-            return;
-        }
-
-        if (newPassword.length < 6) {
-            displayError('La contraseña debe tener al menos 6 caracteres.');
-            return;
-        }
-
-        try {
-            const btn = document.getElementById('btnSubmitPassword');
-            btn.disabled = true;
-            btn.textContent = 'Cambiando...';
-
-            await changeUserPassword(changingPasswordUserId, { password: newPassword });
-            displayMessage && displayMessage('Contraseña cambiada correctamente.');
-            passwordModalInstance.hide();
-        } catch (err) {
-            console.error('changePassword error', err);
-            displayError(`No se pudo cambiar la contraseña: ${err.message || err}`);
-        } finally {
-            const btn = document.getElementById('btnSubmitPassword');
-            btn.disabled = false;
-            btn.textContent = 'Cambiar contraseña';
-        }
-    });
+                modalInstance.hide();
+                await loadUsers();
+            } catch (err) {
+                displayError(`No se pudo guardar el usuario: ${err.message}`);
+            } finally {
+                const btn = document.getElementById('btnSubmitUser');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Guardar usuario';
+                }
+            }
+        });
+    } else {
+        console.warn('formUser no encontrado. Omitiendo lógica de envío de usuario.');
+    }
 }
 
 function initTableHandlers() {
-    document.getElementById('btnRefreshUsers').addEventListener('click', () => {
-        loadUsers();
-    });
+    const btnRefresh = document.getElementById('btnRefreshUsers');
+    if (btnRefresh) btnRefresh.addEventListener('click', loadUsers);
 
-    document.getElementById('btnFilter').addEventListener('click', () => {
-        filterUsers();
-    });
+    document.getElementById('btnFilter')?.addEventListener('click', filterUsers);
+    document.getElementById('inputSearch')?.addEventListener('input', filterUsers);
+    document.getElementById('selectRole')?.addEventListener('change', filterUsers);
 
-    document.getElementById('inputSearch').addEventListener('input', () => {
-        filterUsers();
-    });
+    const tbody = document.querySelector('#usersTable tbody');
+    if (!tbody) {
+        console.warn('Tabla de usuarios no encontrada. initTableHandlers abortado.');
+        return;
+    }
 
-    document.getElementById('selectRole').addEventListener('change', () => {
-        filterUsers();
-    });
-
-    document.getElementById('selectStatus').addEventListener('change', () => {
-        filterUsers();
-    });
-
-    document.querySelector('#usersTable tbody').addEventListener('click', async (e) => {
+    tbody.addEventListener('click', async (e) => {
         const btnEdit = e.target.closest('.btn-edit');
         const btnDelete = e.target.closest('.btn-delete');
         const btnPassword = e.target.closest('.btn-password');
 
         if (btnEdit) {
             const id = btnEdit.getAttribute('data-id');
-            const user = currentUsers.find(u => u.id == id);
-            if (user) {
-                editingUserId = id;
-                document.getElementById('modalUserTitle').textContent = 'Editar usuario';
-                document.getElementById('inputNombre').value = user.nombre || '';
-                document.getElementById('inputPrimerApellido').value = user.primerApellido || '';
-                document.getElementById('inputSegundoApellido').value = user.segundoApellido || '';
-                document.getElementById('inputEmail').value = user.email || '';
-                document.getElementById('inputTelefono').value = user.telefono || '';
-                document.getElementById('selectRol').value = user.rol || '';
-                document.getElementById('selectEstado').value = user.estado || 'activo';
-                document.getElementById('inputNotas').value = user.notas || '';
-                
-                document.getElementById('passwordField').style.display = 'none';
-                document.getElementById('confirmPasswordField').style.display = 'none';
-                document.getElementById('inputPassword').required = false;
-                document.getElementById('inputConfirmPassword').required = false;
-                
-                modalInstance.show();
-            }
+            const user = currentUsers.find(u => (u.idUsuario ?? u.id ?? '').toString() === (id ?? '').toString());
+
+            if (!user) return;
+
+            editingUserId = id;
+            const titleEl = document.getElementById('modalUserTitle');
+            titleEl && (titleEl.textContent = 'Editar usuario');
+
+            if (!sucursales.length) await fetchSucursales().catch(() => {});
+
+            document.getElementById('inputNombre') && (document.getElementById('inputNombre').value = user.nombre ?? '');
+            document.getElementById('inputPrimerApellido') && (document.getElementById('inputPrimerApellido').value = user.primerApellido ?? '');
+            document.getElementById('inputSegundoApellido') && (document.getElementById('inputSegundoApellido').value = user.segundoApellido ?? '');
+            document.getElementById('inputEmail') && (document.getElementById('inputEmail').value = user.email ?? '');
+            document.getElementById('inputTelefono') && (document.getElementById('inputTelefono').value = user.numeroTelefono ?? '');
+            document.getElementById('selectRol') && (document.getElementById('selectRol').value = user.rol ?? '');
+
+            const idSucursalGuess = user.idSucursal ?? user.sucursal?.id ?? null;
+            if (document.getElementById('selectSucursal')) document.getElementById('selectSucursal').value = idSucursalGuess ?? '';
+
+            document.getElementById('passwordField') && (document.getElementById('passwordField').style.display = 'none');
+            document.getElementById('confirmPasswordField') && (document.getElementById('confirmPasswordField').style.display = 'none');
+
+            modalInstance.show();
         }
 
         if (btnPassword) {
-            const id = btnPassword.getAttribute('data-id');
-            const name = btnPassword.getAttribute('data-name');
-            changingPasswordUserId = id;
-            document.getElementById('formChangePassword').reset();
-            passwordModalInstance.show();
+            changingPasswordUserId = btnPassword.getAttribute('data-id');
+            document.getElementById('formChangePassword')?.reset();
+            passwordModalInstance?.show();
         }
 
         if (btnDelete) {
-            const id = btnDelete.getAttribute('data-id');
             const name = btnDelete.getAttribute('data-name');
             if (confirm(`¿Estás seguro de que deseas eliminar al usuario "${name}"?`)) {
                 try {
-                    await deleteUser(id);
-                    displayMessage && displayMessage('Usuario eliminado correctamente.');
-                    await loadUsers();
+                    await deleteUser();
                 } catch (err) {
-                    console.error('deleteUser error', err);
-                    displayError(`No se pudo eliminar el usuario: ${err.message || err}`);
+                    displayError(`No se pudo eliminar el usuario: ${err.message}`);
                 }
             }
         }
@@ -337,29 +431,25 @@ function initTableHandlers() {
 
 async function loadUsers() {
     try {
-        const users = await fetchUsers();
-        currentUsers = users;
+        currentUsers = await fetchAllUsers();
         filterUsers();
     } catch (err) {
-        console.error('loadUsers error', err);
-        displayError(`Error cargando usuarios: ${err.message || err}`);
+        displayError(`Error cargando usuarios: ${err.message}`);
         renderUsersTable([]);
     }
 }
 
 async function init() {
     try {
-        await getUserProfile().catch(err => {
-            console.warn('getUserProfile falló: ', err);
-            return null;
-        });
+        await getUserProfile().catch(() => null);
 
+        await fetchSucursales().catch(() => {});
         initModalLogic();
         initTableHandlers();
         await loadUsers();
     } catch (err) {
-        console.error('init usuarios error', err);
-        displayError('Error inicializando módulo de usuarios.');
+        console.error('Error inicializando módulo de usuarios:', err);
+        displayError(`Error inicializando módulo de usuarios.`);
     }
 }
 
