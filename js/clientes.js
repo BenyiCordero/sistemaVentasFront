@@ -32,14 +32,12 @@ function renderClientRow(client) {
     <td>${client.idCliente ?? client.id ?? ""}</td>
     <td>${nombreCompleto}</td>
     <td>${client.persona.numeroTelefono || "N/A"}</td>
-    <td><span class="badge bg-${
-      client.creditoActivo ? "success" : "secondary"
+    <td><span class="badge bg-${client.creditoActivo ? "success" : "secondary"
     }">${client.creditoActivo ? "Activo" : "Inactivo"}</span></td>
     <td>${fechaRegistro}</td>
     <td>
-        <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${
-          client.idCliente || client.id
-        }">
+        <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${client.idCliente || client.id
+    }">
             <i class="bi bi-pencil"></i>
         </button>
     </td>

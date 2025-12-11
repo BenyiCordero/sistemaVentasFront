@@ -39,26 +39,15 @@
                             <label class="form-label">Buscar usuario</label>
                             <input id="inputSearch" class="form-control" type="text" placeholder="Nombre, email o ID">
                         </div>
-                        <div class="col-12 col-md-3">
+                        <div class="col-12 col-md-4">
                             <label class="form-label">Rol</label>
                             <select id="selectRole" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="admin">Administrador</option>
-                                <option value="vendedor">Vendedor</option>
-                                <option value="inventario">Inventario</option>
-                                <option value="reportes">Reportes</option>
+                                <option value="ROLE_ADMIN">Administrador</option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">Estado</label>
-                            <select id="selectStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                                <option value="suspendido">Suspendido</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-2">
+
+                        <div class="col-12 col-md-4">
                             <label class="form-label">&nbsp;</label>
                             <div>
                                 <button id="btnFilter" class="btn btn-outline-primary w-100">
@@ -81,8 +70,7 @@
                                     <th>Email</th>
                                     <th>Teléfono</th>
                                     <th>Rol</th>
-                                    <th>Estado</th>
-                                    <th>Fecha registro</th>
+                                    <th>Sucursal</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -142,18 +130,9 @@
                                 <label class="form-label">Rol</label>
                                 <select name="rol" id="selectRol" class="form-select" required>
                                     <option value="">Seleccionar rol</option>
-                                    <option value="admin">Administrador</option>
-                                    <option value="vendedor">Vendedor</option>
-                                    <option value="inventario">Inventario</option>
-                                    <option value="reportes">Reportes</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Estado</label>
-                                <select name="estado" id="selectEstado" class="form-select" required>
-                                    <option value="activo">Activo</option>
-                                    <option value="inactivo">Inactivo</option>
-                                    <option value="suspendido">Suspendido</option>
+                                    <option value="ROLE_ADMIN">Administrador</option>
+                                    <option value="ROLE_GERENTE">Gerente</option>
+                                    <option value="ROLE_VENDEDOR">Vendedor</option>
                                 </select>
                             </div>
 
@@ -168,10 +147,11 @@
                                     placeholder="Repetir contraseña">
                             </div>
 
-                            <div class="col-12">
-                                <label class="form-label">Notas adicionales</label>
-                                <textarea name="notas" id="inputNotas" class="form-control" rows="2"
-                                    placeholder="Información adicional sobre el usuario"></textarea>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Sucursal</label>
+                                <select name="sucursal" id="selectSucursal" class="form-select" required>
+                                    <option value="">Seleccionar sucursal</option>
+                                </select>
                             </div>
                         </div>
                     </div>
