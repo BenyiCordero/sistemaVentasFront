@@ -1,308 +1,579 @@
-// js/inventario.js
-import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
+import { notifySuccess, notifyError } from './utils.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 
-const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
-const CREATE_PRODUCT_ENDPOINT = `${BASE_API_URL}/product`;
-const UPDATE_PRODUCT_ENDPOINT = (id) => `${BASE_API_URL}/product/${id}`;
-const DELETE_PRODUCT_ENDPOINT = (id) => `${BASE_API_URL}/product/${id}`;
+let products = [];
+let inventoryDetailsMap = new Map();
+let tableBody = null;
+let modalProductInstance = null;
+let lastSearchToken = 0;
 
-const productsTableBody = () => document.querySelector('#productsTable tbody');
-const productsEmpty = () => document.getElementById('products-empty');
+function q(selector) { return document.querySelector(selector); }
+function qAll(selector) { return Array.from(document.querySelectorAll(selector)); }
 
-let currentProducts = [];
-let modalInstance = null;
-let editingProductId = null;
-
-function getStockStatus(stock, stockMinimo) {
-    if (stock === 0) return { text: 'Agotado', class: 'danger' };
-    if (stock <= stockMinimo) return { text: 'Bajo stock', class: 'warning' };
-    return { text: 'Activo', class: 'success' };
+function formatDateLocal(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString();
+    } catch (e) { return dateStr; }
 }
 
-function renderProductRow(product) {
-    const tr = document.createElement('tr');
-    const status = getStockStatus(product.stock, product.stockMinimo);
-    
-    tr.innerHTML = `
-    <td>${product.idProducto ?? product.id ?? ''}</td>
-    <td>${product.codigo ?? ''}</td>
-    <td>${product.nombre ?? ''}</td>
-    <td><span class="badge bg-secondary">${product.categoria ?? ''}</span></td>
-    <td>${product.stock ?? 0}</td>
-    <td class="text-end">$${typeof product.precio !== 'undefined' ? Number(product.precio).toFixed(2) : '0.00'}</td>
-    <td><span class="badge bg-${status.class}">${status.text}</span></td>
-    <td>
-        <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${product.idProducto || product.id}">
-            <i class="bi bi-pencil"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-danger btn-delete" data-id="${product.idProducto || product.id}">
-            <i class="bi bi-trash"></i>
-        </button>
-    </td>
-    `;
-    return tr;
-}
-
-function renderProductsTable(products) {
-    const tbody = productsTableBody();
-    tbody.innerHTML = '';
-    if (!products || products.length === 0) {
-        productsEmpty().classList.remove('d-none');
-        return;
-    }
-    productsEmpty().classList.add('d-none');
-    products.forEach(product => tbody.appendChild(renderProductRow(product)));
-}
-
-function filterProducts() {
-    const searchTerm = document.getElementById('inputSearch').value.toLowerCase();
-    const categoryFilter = document.getElementById('selectCategory').value;
-    const statusFilter = document.getElementById('selectStatus').value;
-
-    let filtered = currentProducts.filter(product => {
-        const matchesSearch = !searchTerm || 
-            (product.nombre?.toLowerCase().includes(searchTerm) || 
-                product.codigo?.toLowerCase().includes(searchTerm));
-
-        const matchesCategory = !categoryFilter || product.categoria === categoryFilter;
-        
-        const status = getStockStatus(product.stock, product.stockMinimo);
-        const matchesStatus = !statusFilter || 
-            (statusFilter === 'activo' && status.class === 'success') ||
-            (statusFilter === 'bajo_stock' && status.class === 'warning') ||
-            (statusFilter === 'agotado' && status.class === 'danger');
-
-        return matchesSearch && matchesCategory && matchesStatus;
+async function apiGet(path) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${BASE_API_URL}${path}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+        }
     });
+    const text = await res.text().catch(() => null);
+    if (!res.ok) {
+        const err = new Error(`GET ${path} => ${res.status} - ${text ?? '<no body>'}`);
+        err.status = res.status;
+        err.body = text;
+        throw err;
+    }
+    try { return text ? JSON.parse(text) : null; } catch (e) { return null; }
+}
+
+async function apiPost(path, payload) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${BASE_API_URL}${path}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+    const text = await res.text().catch(() => null);
+    if (!res.ok) {
+        const err = new Error(`POST ${path} => ${res.status} - ${text ?? '<no body>'}`);
+        err.status = res.status;
+        err.body = text;
+        throw err;
+    }
+    try { return text ? JSON.parse(text) : null; } catch (e) { return null; }
+}
+
+function extractInventarioId(obj) {
+    if (obj == null) return null;
+    if (typeof obj === 'number' && Number.isFinite(obj)) return obj;
+    if (typeof obj === 'string' && /^\d+$/.test(obj.trim())) return Number(obj.trim());
+
+    if (typeof obj === 'object') {
+        const keys = ['idInventario','id_inventario','id','inventarioId','idInventarioResponse','idInventarioDTO','id_inventario_created'];
+        for (const k of keys) {
+            if (obj[k] != null) return obj[k];
+        }
+        if (obj.sucursal && (obj.sucursal.inventario != null)) return obj.sucursal.inventario;
+        if (obj.inventario && (obj.inventario.idInventario || obj.inventario.id)) return obj.inventario.idInventario ?? obj.inventario.id;
+        if (obj.data && (obj.data.idInventario ?? obj.data.id)) return obj.data.idInventario ?? obj.data.id;
+        if (obj.result && (obj.result.idInventario ?? obj.result.id)) return obj.result.idInventario ?? obj.result.id;
+    }
+    return null;
+}
+
+function extractProductoId(obj) {
+    if (obj == null) return null;
+    if (typeof obj === 'number' && Number.isFinite(obj)) return obj;
+    if (typeof obj === 'string' && /^\d+$/.test(obj.trim())) return Number(obj.trim());
+    if (typeof obj === 'object') {
+        const keys = ['idProducto','id_producto','id','productoId'];
+        for (const k of keys) {
+            if (obj[k] != null) return obj[k];
+        }
+        if (obj.data && (obj.data.idProducto ?? obj.data.id)) return obj.data.idProducto ?? obj.data.id;
+        if (obj.result && (obj.result.idProducto ?? obj.result.id)) return obj.result.idProducto ?? obj.result.id;
+    }
+    return null;
+}
+
+function extractSucursalId(profile) {
+    if (!profile) return null;
+    if (profile.idSucursal) return profile.idSucursal;
+    if (profile.id_sucursal) return profile.id_sucursal;
+    if (profile.sucursalId) return profile.sucursalId;
+    if (profile.sucursal && (profile.sucursal.idSucursal || profile.sucursal.id)) return profile.sucursal.idSucursal ?? profile.sucursal.id;
+    if (profile.trabajador && (profile.trabajador.idSucursal || profile.trabajador.id_sucursal || profile.trabajador.sucursalId)) {
+        return profile.trabajador.idSucursal ?? profile.trabajador.id_sucursal ?? profile.trabajador.sucursalId;
+    }
+    for (const key of Object.keys(profile)) {
+        const k = key.toLowerCase();
+        if (k.includes('sucursal') && typeof profile[key] === 'number') return profile[key];
+    }
+    return null;
+}
+
+async function ensureInventoryForSucursal(sucursalId) {
+    if (!sucursalId) return null;
+    console.debug('ensureInventoryForSucursal: start for sucursalId=', sucursalId);
+
+    try {
+        const inv = await apiGet(`/inventory/${sucursalId}`);
+        console.debug('ensureInventoryForSucursal: GET /inventory/{sucursalId} returned:', inv);
+        if (inv) return inv;
+    } catch (err) {
+        console.warn('ensureInventoryForSucursal: GET /inventory/{sucursalId} failed:', err.status, err.body);
+    }
+
+    try {
+        const all = await apiGet('/inventory');
+        console.debug('ensureInventoryForSucursal: GET /inventory returned:', all);
+        const arr = Array.isArray(all) ? all : (all ? [all] : []);
+        const found = arr.find(inv => {
+            if (!inv) return false;
+            if (inv.sucursal && (inv.sucursal.idSucursal == sucursalId || inv.sucursal.id == sucursalId)) return true;
+            if (inv.idSucursal && inv.idSucursal == sucursalId) return true;
+            if (inv.sucursalId && inv.sucursalId == sucursalId) return true;
+            return false;
+        });
+        if (found) return found;
+    } catch (err) {
+        console.warn('ensureInventoryForSucursal: GET /inventory fallback failed:', err.status, err.body);
+    }
+
+    const payloadVariants = [
+        { titulo: 'Inventario 1', descripcion: 'Inv', sucursal: { idSucursal: sucursalId } },
+        { titulo: 'Inventario 1', descripcion: 'Inv', sucursal: { id: sucursalId } },
+        { titulo: 'Inventario 1', descripcion: 'Inv', sucursalId: sucursalId },
+        { titulo: 'Inventario 1', descripcion: 'Inv', idSucursal: sucursalId }
+    ];
+    for (const payload of payloadVariants) {
+        try {
+            console.debug('ensureInventoryForSucursal: trying POST /inventory payload:', payload);
+            const created = await apiPost('/inventory', payload);
+            console.debug('ensureInventoryForSucursal: POST /inventory returned:', created);
+            try {
+                const re = await apiGet(`/inventory/${sucursalId}`);
+                console.debug('ensureInventoryForSucursal: re-fetched inventory after create:', re);
+                if (re) return re;
+            } catch (fetchErr) {
+                console.warn('ensureInventoryForSucursal: re-fetch after create failed:', fetchErr.status, fetchErr.body);
+            }
+            if (created && typeof created === 'object') return created;
+            const idExtracted = extractInventarioId(created);
+            if (idExtracted) return { idInventario: idExtracted };
+        } catch (postErr) {
+            console.warn('ensureInventoryForSucursal: POST /inventory failed for payload', payload, postErr.status, postErr.body);
+        }
+    }
+
+    try {
+        const all2 = await apiGet('/inventory');
+        const arr2 = Array.isArray(all2) ? all2 : (all2 ? [all2] : []);
+        if (arr2.length > 0) return arr2[0];
+    } catch (err) {
+        console.warn('ensureInventoryForSucursal: final GET /inventory failed:', err.status, err.body);
+    }
+
+    notifyError('No se pudo obtener ni crear inventario para la sucursal. Revisa consola.');
+    return null;
+}
+
+async function loadProductsAndDetails() {
+    try {
+        showLoadingTable(true);
+
+        try {
+            const fetched = await apiGet('/product');
+            if (Array.isArray(fetched)) products = fetched;
+            else if (fetched && Array.isArray(fetched.content)) products = fetched.content;
+            else if (fetched && typeof fetched === 'object') products = [fetched];
+            else products = [];
+        } catch (err) {
+            console.warn('loadProductsAndDetails: GET /product failed:', err.status, err.body);
+            if (String(err.body || '').toLowerCase().includes('no existen productos') ||
+                String(err.body || '').toLowerCase().includes('no hay productos')) {
+                products = [];
+            } else {
+                throw err;
+            }
+        }
+
+        inventoryDetailsMap.clear();
+        const promises = products.map(async (p) => {
+            try {
+                const details = await apiGet(`/inventoryDetails/producto/${p.idProducto}`);
+                inventoryDetailsMap.set(p.idProducto, Array.isArray(details) ? details : (details ? [details] : []));
+            } catch (err) {
+                console.warn(`loadProductsAndDetails: no details for product ${p.idProducto}:`, err.status, err.body);
+                inventoryDetailsMap.set(p.idProducto, []);
+            }
+        });
+        await Promise.all(promises);
+        renderProductsTable(products);
+        showLoadingTable(false);
+    } catch (err) {
+        console.error('loadProductsAndDetails error:', err);
+        showLoadingTable(false);
+        notifyError('No se pudo cargar productos: ' + (err.body || err.message));
+    }
+}
+
+function computeAggregateForProduct(product) {
+    const details = inventoryDetailsMap.get(product.idProducto) || [];
+    let totalCantidad = 0;
+    let disponible = false;
+    let latestDate = null;
+    details.forEach(d => {
+        const c = Number(d.cantidad) || 0;
+        totalCantidad += c;
+        if (d.disponible === true || d.disponible === 'true') disponible = true;
+        const date = d.fechaAgregado ? new Date(d.fechaAgregado) : null;
+        if (date && !Number.isNaN(date.getTime())) {
+            if (!latestDate || date > latestDate) latestDate = date;
+        }
+    });
+    return { cantidad: totalCantidad, disponible, fechaAgregado: latestDate ? latestDate.toISOString().slice(0,10) : null };
+}
+
+function renderProductsTable(list) {
+    if (!tableBody) tableBody = q('#productsTable tbody');
+    tableBody.innerHTML = '';
+    if (!list || list.length === 0) {
+        q('#products-empty')?.classList.remove('d-none');
+        return;
+    } else {
+        q('#products-empty')?.classList.add('d-none');
+    }
+
+    list.forEach(product => {
+        const agg = computeAggregateForProduct(product);
+        const tr = document.createElement('tr');
+        tr.classList.add('product-row');
+        tr.dataset.productId = product.idProducto;
+        tr.innerHTML = `
+            <td>${product.idProducto ?? ''}</td>
+            <td>${agg.cantidad}</td>
+            <td>${product.marca ?? ''}</td>
+            <td>${product.modelo ?? ''}</td>
+            <td>${agg.disponible ? 'Sí' : 'No'}</td>
+            <td>${product.precio != null ? Number(product.precio).toFixed(2) : ''}</td>
+            <td>${agg.fechaAgregado ? formatDateLocal(agg.fechaAgregado) : ''}</td>
+        `;
+        tr.addEventListener('click', () => openProductDetailsModal(product.idProducto));
+        tableBody.appendChild(tr);
+    });
+}
+
+function applyFiltersAndRender() {
+    const qText = q('#inputSearch')?.value.trim().toLowerCase() || '';
+    const category = q('#selectCategory')?.value || '';
+    const status = q('#selectStatus')?.value || '';
+    let filtered = products.slice();
+
+    if (qText) {
+        filtered = filtered.filter(p =>
+            (p.nombre || '').toLowerCase().includes(qText) ||
+            (p.modelo || '').toLowerCase().includes(qText) ||
+            (String(p.idProducto) || '').includes(qText)
+        );
+    }
+
+    if (category === 'activo') filtered = filtered.filter(p => p.activo === true || p.activo === 'true');
+    else if (category === 'otros') filtered = filtered.filter(p => !(p.activo === true || p.activo === 'true'));
+
+    if (status) {
+        filtered = filtered.filter(p => {
+            const details = inventoryDetailsMap.get(p.idProducto) || [];
+            return details.some(d => (d.estado || '').toLowerCase() === status.toLowerCase());
+        });
+    }
 
     renderProductsTable(filtered);
 }
 
-async function fetchProducts() {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(GET_PRODUCTS_ENDPOINT, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+function showLoadingTable(loading) {
+    const tb = q('#productsTable');
+    if (!tb) return;
+    if (loading) tb.classList.add('opacity-75');
+    else tb.classList.remove('opacity-75');
+}
+
+async function openProductDetailsModal(productId) {
+    const product = products.find(p => p.idProducto == productId);
+    if (!product) return notifyError('Producto no encontrado.');
+
+    let details = [];
+    try {
+        const d = await apiGet(`/inventoryDetails/producto/${productId}`);
+        details = Array.isArray(d) ? d : (d ? [d] : []);
+    } catch (err) {
+        console.warn('openProductDetailsModal: error fetching details:', err.status, err.body);
+        details = inventoryDetailsMap.get(productId) || [];
+    }
+
+    const existing = document.getElementById('modalProductDetails');
+    if (existing) existing.remove();
+
+    const modalHtml = document.createElement('div');
+    modalHtml.className = 'modal fade';
+    modalHtml.id = 'modalProductDetails';
+    modalHtml.tabIndex = -1;
+    modalHtml.setAttribute('aria-hidden', 'true');
+    modalHtml.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Producto #${product.idProducto} — ${product.nombre}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6"><strong>Nombre:</strong> ${product.nombre ?? ''}</div>
+                        <div class="col-12 col-md-6"><strong>Marca:</strong> ${product.marca ?? ''}</div>
+                        <div class="col-12 col-md-6"><strong>Modelo:</strong> ${product.modelo ?? ''}</div>
+                        <div class="col-12 col-md-6"><strong>IMEI:</strong> ${product.imei ?? ''}</div>
+                        <div class="col-12 col-md-6"><strong>Precio:</strong> ${product.precio != null ? Number(product.precio).toFixed(2) : ''}</div>
+                        <div class="col-12 col-md-6"><strong>Costo:</strong> ${product.costo != null ? Number(product.costo).toFixed(2) : ''}</div>
+                        <div class="col-12"><strong>Descripción:</strong> ${product.descripcion ?? ''}</div>
+                        <div class="col-12"><strong>Activo:</strong> ${product.activo ? 'Sí' : 'No'}</div>
+                    </div>
+                    <hr/>
+                    <h6>Detalles en inventario</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID Detalle</th>
+                                    <th>ID Inventario</th>
+                                    <th>Cantidad</th>
+                                    <th>Estado</th>
+                                    <th>Disponible</th>
+                                    <th>Fecha agregado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(details.length === 0) ? `<tr><td colspan="6" class="text-center text-muted">No hay registros</td></tr>` :
+                                    details.map(d => `
+                                        <tr>
+                                            <td>${d.idDetalle ?? ''}</td>
+                                            <td>${d.inventario?.idInventario ?? (d.idInventario ?? '')}</td>
+                                            <td>${d.cantidad ?? ''}</td>
+                                            <td>${d.estado ?? ''}</td>
+                                            <td>${d.disponible ? 'Sí' : 'No'}</td>
+                                            <td>${d.fechaAgregado ? formatDateLocal(d.fechaAgregado) : ''}</td>
+                                        </tr>
+                                    `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnCloseDetails" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modalHtml);
+    new bootstrap.Modal(modalHtml).show();
+}
+
+function debounce(fn, wait) {
+    let t = null;
+    return function(...args) {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, args), wait);
+    };
+}
+
+async function performLiveSearch(query, tokenId) {
+    try {
+        if (!query || query.length < 2) {
+            if (tokenId === lastSearchToken) renderProductsTable(products);
+            return;
         }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data?.products ?? data?.data ?? []);
-}
-
-async function createProduct(productPayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(CREATE_PRODUCT_ENDPOINT, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(productPayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
-}
-
-async function updateProduct(id, productPayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(UPDATE_PRODUCT_ENDPOINT(id), {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(productPayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
-}
-
-async function deleteProduct(id) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(DELETE_PRODUCT_ENDPOINT(id), {
-        method: 'DELETE',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return true;
-}
-
-function initModalLogic() {
-    const modalEl = document.getElementById('modalProduct');
-    if (!modalEl) {
-        console.warn('modalProduct no encontrado en el DOM');
-        return;
-    }
-    modalInstance = new bootstrap.Modal(modalEl);
-
-    document.getElementById('btnOpenNewProduct').addEventListener('click', () => {
-        editingProductId = null;
-        document.getElementById('modalProductTitle').textContent = 'Nuevo producto';
-        document.getElementById('formProduct').reset();
-        document.getElementById('inputStock').value = '0';
-
-        const stockMinEl = document.getElementById('inputStockMinimo');
-        if (stockMinEl) stockMinEl.value = '5';
-
-        modalInstance.show();
-    });
-
-    document.getElementById('formProduct').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const payload = {
-            nombre: document.getElementById('inputNombre').value.trim(),
-            descripcion: document.getElementById('inputDescripcion').value.trim(),
-            marca: document.getElementById('inputMarca').value.trim(),
-            modelo: document.getElementById('inputModelo').value.trim(),
-            imei: document.getElementById('inputImei').value.trim(),
-            categoria: document.getElementById('selectCategoria').value,
-            costo: Number(document.getElementById('inputCosto').value || 0),
-            precio: Number(document.getElementById('inputPrecio').value || 0),
-            stock: Number(document.getElementById('inputStock').value || 0),
-            activo: document.getElementById('inputActivo').checked
-        };
 
         try {
-            const btn = document.getElementById('btnSubmitProduct');
-            btn.disabled = true;
-            btn.textContent = editingProductId ? 'Actualizando...' : 'Guardando...';
-
-            if (editingProductId) {
-                await updateProduct(editingProductId, payload);
-                displayMessage && displayMessage('Producto actualizado correctamente.');
+            const serverResults = await apiGet(`/product/nombre?nombre=${encodeURIComponent(query)}`);
+            let list = Array.isArray(serverResults) ? serverResults : (serverResults ? [serverResults] : []);
+            if (!list || list.length === 0) {
+                const qText = query.toLowerCase();
+                list = products.filter(p => (p.nombre || '').toLowerCase().includes(qText) || (p.modelo || '').toLowerCase().includes(qText));
             } else {
-                await createProduct(payload);
-                displayMessage && displayMessage('Producto creado correctamente.');
+                list.forEach(sr => {
+                    const idx = products.findIndex(p => p.idProducto === sr.idProducto);
+                    if (idx >= 0) products[idx] = sr;
+                    else products.push(sr);
+                });
             }
 
-            modalInstance.hide();
-            await loadProducts();
+            if (tokenId === lastSearchToken) {
+                const proms = list.map(async p => {
+                    if (!inventoryDetailsMap.has(p.idProducto)) {
+                        try {
+                            const details = await apiGet(`/inventoryDetails/producto/${p.idProducto}`);
+                            inventoryDetailsMap.set(p.idProducto, Array.isArray(details) ? details : (details ? [details] : []));
+                        } catch (err) {
+                            inventoryDetailsMap.set(p.idProducto, []);
+                        }
+                    }
+                });
+                await Promise.all(proms);
+                renderProductsTable(list);
+            }
         } catch (err) {
-            console.error('saveProduct error', err);
-            displayError(`No se pudo guardar el producto: ${err.message || err}`);
-        } finally {
-            const btn = document.getElementById('btnSubmitProduct');
-            btn.disabled = false;
-            btn.textContent = 'Guardar producto';
+            console.warn('performLiveSearch: server search error:', err.status, err.body);
+            const qText = query.toLowerCase();
+            const filtered = products.filter(p => (p.nombre || '').toLowerCase().includes(qText) || (p.modelo || '').toLowerCase().includes(qText));
+            if (tokenId === lastSearchToken) renderProductsTable(filtered);
         }
-    });
+    } catch (e) {
+        console.error('performLiveSearch error:', e);
+    }
 }
 
-function initTableHandlers() {
-    document.getElementById('btnRefreshProducts').addEventListener('click', () => {
-        loadProducts();
-    });
+function initProductModal() {
+    const modalEl = q('#modalProduct');
+    if (!modalEl) return;
 
-    document.getElementById('btnFilter').addEventListener('click', () => {
-        filterProducts();
-    });
+    modalProductInstance = new bootstrap.Modal(modalEl);
+    const form = q('#formProduct');
+    if (!form) return;
 
-    document.getElementById('inputSearch').addEventListener('input', () => {
-        filterProducts();
-    });
+    if (form._inventarioHandler) {
+        try { form.removeEventListener('submit', form._inventarioHandler); } catch (e) {}
+    }
 
-    document.getElementById('selectCategory').addEventListener('change', () => {
-        filterProducts();
-    });
+    const handler = async (e) => {
+        e.preventDefault(); e.stopPropagation();
 
-    document.getElementById('selectStatus').addEventListener('change', () => {
-        filterProducts();
-    });
+        const payloadProducto = {
+            nombre: q('#inputNombre')?.value?.trim() || '',
+            descripcion: q('#inputDescripcion')?.value?.trim() || '',
+            marca: q('#inputMarca')?.value?.trim() || '',
+            modelo: q('#inputModelo')?.value?.trim() || '',
+            imei: q('#inputImei')?.value?.trim() || null,
+            precio: q('#inputPrecio')?.value ? Number(q('#inputPrecio').value) : null,
+            costo: q('#inputCosto')?.value ? Number(q('#inputCosto').value) : null,
+            activo: q('#inputActivo')?.checked === true
+        };
 
-    document.querySelector('#productsTable tbody').addEventListener('click', async (e) => {
-        const btnEdit = e.target.closest('.btn-edit');
-        const btnDelete = e.target.closest('.btn-delete');
-
-        if (btnEdit) {
-            const id = btnEdit.getAttribute('data-id');
-            const product = currentProducts.find(p => (p.idProducto || p.id) == id);
-            if (product) {
-                editingProductId = id;
-                document.getElementById('modalProductTitle').textContent = 'Editar producto';
-                document.getElementById('inputNombre').value = product.nombre || '';
-                document.getElementById('inputCodigo').value = product.codigo || '';
-                document.getElementById('inputDescripcion').value = product.descripcion || '';
-                document.getElementById('inputMarca').value = product.marca || '';
-                document.getElementById('inputModelo').value = product.modelo || '';
-                document.getElementById('inputImei').value = product.imei || '';
-                document.getElementById('selectCategoria').value = product.categoria || '';
-                document.getElementById('inputCosto').value = product.costo || 0;
-                document.getElementById('inputPrecio').value = product.precio || 0;
-                document.getElementById('inputStock').value = product.stock || 0;
-                document.getElementById('inputActivo').checked = product.activo !== false;
-                modalInstance.show();
-            }
+        if (!payloadProducto.nombre || !payloadProducto.descripcion || !payloadProducto.marca || !payloadProducto.modelo) {
+            return notifyError('Llena los campos obligatorios del producto.');
         }
 
-        if (btnDelete) {
-            const id = btnDelete.getAttribute('data-id');
-            if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
+        const btn = q('#btnSubmitProduct');
+        try {
+            if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+            const created = await apiPost('/product', payloadProducto);
+            console.debug('Producto creado (server):', created);
+            notifySuccess('Producto creado correctamente.');
+
+            const profile = await getUserProfile().catch(() => null);
+            const sucursalId = extractSucursalId(profile);
+            let inventarioObj = null;
+            if (sucursalId) {
+                inventarioObj = await ensureInventoryForSucursal(sucursalId);
+            }
+            console.debug('inventarioObj after ensureInventoryForSucursal:', inventarioObj);
+
+            const stockVal = Number(q('#inputStock')?.value || 0);
+
+            let inventarioIdValue = extractInventarioId(inventarioObj);
+
+            if (!inventarioIdValue && sucursalId) {
                 try {
-                    await deleteProduct(id);
-                    displayMessage && displayMessage('Producto eliminado correctamente.');
-                    await loadProducts();
+                    const direct = await apiGet(`/inventory/${sucursalId}`);
+                    console.debug('Direct GET /inventory/{sucursalId} returned (strategy B):', direct);
+                    inventarioIdValue = extractInventarioId(direct);
                 } catch (err) {
-                    console.error('deleteProduct error', err);
-                    displayError(`No se pudo eliminar el producto: ${err.message || err}`);
+                    console.warn('Direct GET /inventory/{sucursalId} (strategy B) failed:', err.status, err.body);
                 }
             }
+
+            if (!inventarioIdValue) {
+                try {
+                    const allInv = await apiGet('/inventory');
+                    console.debug('GET /inventory (strategy C) returned:', allInv);
+                    const arr = Array.isArray(allInv) ? allInv : (allInv ? [allInv] : []);
+                    const found = arr.find(inv => {
+                        if (!inv) return false;
+                        if (inv.sucursal && (inv.sucursal.idSucursal == sucursalId || inv.sucursal.id == sucursalId)) return true;
+                        if (inv.idSucursal && inv.idSucursal == sucursalId) return true;
+                        if (inv.sucursalId && inv.sucursalId == sucursalId) return true;
+                        return false;
+                    });
+                    if (found) inventarioIdValue = extractInventarioId(found);
+                    console.debug('Strategy C found inventory, extracted idInventario:', inventarioIdValue, 'found=', found);
+                } catch (err) {
+                    console.warn('GET /inventory (strategy C) failed:', err.status, err.body);
+                }
+            }
+
+            const productoIdValue = extractProductoId(created) ?? created?.idProducto ?? created?.id ?? created?.id_producto ?? null;
+
+            console.debug('Resolved ids final -> inventarioIdValue:', inventarioIdValue, 'productoIdValue:', productoIdValue);
+
+            const inventarioDetailPayload = {
+                cantidad: stockVal,
+                estado: q('#inputEstado')?.value?.trim() || 'Bueno',
+                disponible: (stockVal > 0),
+                idInventario: inventarioIdValue,
+                idProducto: productoIdValue
+            };
+
+            console.debug('inventarioDetailPayload about to POST:', inventarioDetailPayload);
+
+            if (inventarioIdValue && productoIdValue) {
+                try {
+                    const savedDetail = await apiPost('/inventoryDetails', inventarioDetailPayload);
+                    console.info('InventarioDetails creado:', savedDetail);
+                    notifySuccess('InventarioDetails creado y ligado correctamente.');
+                } catch (err) {
+                    console.error('POST /inventoryDetails failed:', err.status, err.body);
+                    notifyError('Producto creado, pero no se pudo ligar al inventario: ' + (err.body || err.message));
+                }
+            } else {
+                console.warn('Faltan ids para crear InventarioDetails:', inventarioIdValue, productoIdValue);
+                notifyError('Producto creado pero no se pudo ligar al inventario: idInventario faltante.');
+            }
+
+            try { form.reset(); } catch (err) {}
+            if (modalProductInstance) modalProductInstance.hide();
+            await loadProductsAndDetails();
+
+        } catch (err) {
+            console.error('Error creando producto/inventario:', err);
+            notifyError('No se pudo crear el producto: ' + (err.body || err.message));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Guardar producto'; }
         }
+    };
+
+    form._inventarioHandler = handler;
+    form.addEventListener('submit', handler);
+
+    q('#btnOpenNewProduct')?.addEventListener('click', () => {
+        q('#modalProductTitle').textContent = 'Nuevo producto';
+        try { q('#formProduct').reset(); } catch (e) {}
+        modalProductInstance.show();
     });
 }
 
-async function loadProducts() {
-    try {
-        const products = await fetchProducts();
-        currentProducts = products;
-        filterProducts();
-    } catch (err) {
-        console.error('loadProducts error', err);
-        displayError(`Error cargando productos: ${err.message || err}`);
-        renderProductsTable([]);
-    }
+function initFilters() {
+    q('#btnFilter')?.addEventListener('click', applyFiltersAndRender);
+    q('#btnRefreshProducts')?.addEventListener('click', () => loadProductsAndDetails());
+    q('#inputSearch')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFiltersAndRender(); });
+    const doSearchDebounced = debounce((val, tokenId) => performLiveSearch(val, tokenId), 300);
+    q('#inputSearch')?.addEventListener('input', (e) => {
+        const v = e.target.value.trim();
+        lastSearchToken = Math.random();
+        doSearchDebounced(v, lastSearchToken);
+    });
 }
 
-async function init() {
-    try {
-        await getUserProfile().catch(err => {
-            console.warn('getUserProfile falló: ', err);
-            return null;
-        });
-
-        initModalLogic();
-        initTableHandlers();
-        await loadProducts();
-    } catch (err) {
-        console.error('init inventario error', err);
-        displayError('Error inicializando módulo de inventario.');
-    }
+function initPage() {
+    tableBody = q('#productsTable tbody');
+    initFilters();
+    initProductModal();
+    loadProductsAndDetails();
 }
 
-if (window.partialsReady) init();
-else document.addEventListener('partialsLoaded', init);
+document.addEventListener('DOMContentLoaded', initPage);

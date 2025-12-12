@@ -3,6 +3,7 @@ import { getUserProfile } from './session.js';
 import { notifySuccess, notifyError } from './utils.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
+const CREATE_INVENTORY_ENDPOINT = `${BASE_API_URL}/inventory`;
 
 let sucursalModalInstance = null;
 let clienteModalInstance = null;
@@ -33,20 +34,6 @@ async function fetchDashboardMetrics() {
             ingresos = await ventasResponse.json();
         }
 
-        /*
-        const gastosResponse = await fetch(`${BASE_API_URL}/sell/total-mes`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (gastosResponse.ok) {
-            gastos = await ventasResponse.json();
-        }
-        */
-
         const comprasResponse = await fetch(`${BASE_API_URL}/inventoryDetails/total-mes`, {
             method: 'GET',
             headers: {
@@ -56,7 +43,7 @@ async function fetchDashboardMetrics() {
         });
 
         if (comprasResponse.ok) {
-            compras = await ventasResponse.json();
+            compras = await comprasResponse.json();
         }
 
         return {
@@ -139,6 +126,13 @@ function initSucursalModal() {
             sucursalKey: document.getElementById('inputSucursalKey')?.value.trim() || '',
         };
 
+        // payload base para inventario (datos estáticos)
+        const payloadInventarioBase = {
+            descripcion: 'Inv',
+            titulo: 'Inventario 1'
+            // NO incluir fechaCreacion aquí; el backend la pone con LocalDate.now()
+        };
+
         console.log('Crear sucursal payload:', payload);
 
         const btn = document.getElementById('btnSubmitSucursal');
@@ -164,7 +158,55 @@ function initSucursalModal() {
                 throw new Error(txt);
             }
 
+            // Parseamos la respuesta para obtener el id de la sucursal creada
+            const sucursalCreated = await res.json();
+            console.log('Sucursal creada (raw):', sucursalCreated);
+
+            // Intentamos extraer distintos nombres posibles para el id (priorizamos idSucursal)
+            const sucursalId = sucursalCreated?.idSucursal ?? sucursalCreated?.id ?? sucursalCreated?.sucursalId ?? null;
+
             notifySuccess('Sucursal creada correctamente.');
+
+            // Si obtuvimos id, intentamos crear el inventario ligado
+            if (sucursalId) {
+                // **IMPORTANTE**: enviar la relación tal como tu backend espera:
+                // sucursal: { idSucursal: <id> }
+                const payloadInventario = {
+                    ...payloadInventarioBase,
+                    sucursal: { idSucursal: sucursalId }
+                };
+
+                try {
+                    const invRes = await fetch(CREATE_INVENTORY_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payloadInventario)
+                    });
+
+                    if (!invRes.ok) {
+                        // intentar leer body para ver el error exacto del backend
+                        let bodyText;
+                        try { bodyText = await invRes.text(); } catch (r) { bodyText = `<no body: ${r}>`; }
+                        const txt = `Status ${invRes.status} - ${bodyText}`;
+                        console.error('Inventario create failed response body:', bodyText);
+                        throw new Error(txt);
+                    }
+
+                    const inventarioCreated = await invRes.json();
+                    console.log('Inventario creado:', inventarioCreated);
+                    notifySuccess('Inventario asociado creado correctamente.');
+                } catch (invErr) {
+                    // Log detallado para debug (revisa la consola / network)
+                    console.error('Error creando inventario asociado:', invErr);
+                    notifyError(`Sucursal creada pero NO se pudo crear el inventario: ${invErr.message || invErr}`);
+                }
+            } else {
+                console.warn('No se obtuvo id de sucursal en la respuesta; no se creó inventario asociado.');
+                notifyError('Sucursal creada pero no fue posible obtener el id para crear el inventario asociado.');
+            }
 
             try { formEl.reset(); } catch (err) { console.warn('form reset falló:', err); }
 
@@ -260,7 +302,6 @@ function initClienteModal() {
     formCliente._submitHandler = handler;
     formCliente.addEventListener('submit', handler);
 }
-
 
 async function initLanding() {
     await updateDashboardUI();
