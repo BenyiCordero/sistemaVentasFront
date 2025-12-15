@@ -291,8 +291,6 @@ async function init() {
         if (stored) {
             setSucursal(Number(stored)); await loadSales();
         }
-
-        document.getElementById('btnOpenNewSale').disabled = true;
     } catch (err) {
         console.error('init ventas error', err);
         displayError('Error inicializando módulo de ventas.');

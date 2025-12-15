@@ -4,9 +4,55 @@ import { notifySuccess, notifyError } from './utils.js';
 
 const BASE_API_URL = 'http://127.0.0.1:8081';
 const CREATE_INVENTORY_ENDPOINT = `${BASE_API_URL}/inventory`;
+const GET_SUCURSAL_ENDPOINT = `${BASE_API_URL}/sucursal/getByUsuario`;
 
 let sucursalModalInstance = null;
 let clienteModalInstance = null;
+
+async function fetchSucursalByEmail(email) {
+    const token = localStorage.getItem('authToken');
+
+    const res = await fetch(GET_SUCURSAL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+    });
+
+    if (!res.ok) {
+        throw new Error('No se pudo obtener la sucursal');
+    }
+
+    return res.json();
+}
+
+async function resolveSucursalOnLogin() {
+    const profile = await getUserProfile().catch(() => null);
+    if (!profile) return null;
+
+    if (profile.idSucursal) {
+        localStorage.setItem('sucursalId', profile.idSucursal);
+        return profile.idSucursal;
+    }
+
+    if (profile.email) {
+        try {
+            const sucursal = await fetchSucursalByEmail(profile.email);
+            if (sucursal?.idSucursal) {
+                localStorage.setItem('sucursalId', sucursal.idSucursal);
+                return sucursal.idSucursal;
+            }
+        } catch (e) {
+            console.warn('No se pudo resolver sucursal en login', e);
+        }
+    }
+
+    localStorage.removeItem('sucursalId');
+    return null;
+}
+
 
 async function fetchDashboardMetrics() {
     const token = localStorage.getItem('authToken');
@@ -307,6 +353,7 @@ async function initLanding() {
     await updateDashboardUI();
     initSucursalModal();
     initClienteModal();
+    resolveSucursalOnLogin();
     
     setInterval(updateDashboardUI, 30000);
 }
