@@ -209,7 +209,7 @@ async function loadClients() {
         if (selectCliente) {
             selectCliente.innerHTML = '<option value="">Seleccionar cliente...</option>';
             currentClients.forEach(client => {
-                const nombreCompleto = [client.nombre, client.primerApellido, client.segundoApellido]
+                const nombreCompleto = [client.persona.nombre, client.persona.primerApellido, client.persona.segundoApellido]
                     .filter(Boolean).join(' ');
                 const option = document.createElement('option');
                 option.value = client.idCliente || client.id;
