@@ -137,8 +137,6 @@ function initModalLogic() {
             displayError('Primero debes guardar la sucursal.');
             return;
         }
-        const hoy = new Date().toISOString().substring(0, 10);
-        document.getElementById('inputFecha').value = hoy;
         document.getElementById('formNewSale').reset();
         inputTotal.value = '0.00';
         modalInstance.show();
