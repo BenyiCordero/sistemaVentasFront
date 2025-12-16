@@ -10,6 +10,8 @@ const CREATE_VENTADETAILS_ENDPOINT = `${BASE_API_URL}/sellDetails`;
 const GET_VENTA_DETAILS_BY_VENTA = (idVenta) => `${BASE_API_URL}/sellDetails/venta/${idVenta}`;
 const UPDATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
 const UPDATE_VENTADETAILS_ENDPOINT = `${BASE_API_URL}/sellDetails`;
+const GET_INVENTORY_DETAILS_BY_PRODUCT = (idProducto) => `${BASE_API_URL}/inventoryDetails/producto/${idProducto}`;
+const UPDATE_INVENTORY_DETAIL_ENDPOINT = (id) => `${BASE_API_URL}/inventoryDetails/${id}`;
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
 
@@ -308,6 +310,39 @@ async function updateVentaDetails(detailsPayload, idVentaDetails) {
     return await res.json();
 }
 
+async function getInventoryDetails(idProducto) {
+    const token = localStorage.getItem('authToken');
+    const url = GET_INVENTORY_DETAILS_BY_PRODUCT(idProducto);
+    const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+}
+
+async function updateInventoryDetail(id, payload) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(UPDATE_INVENTORY_DETAIL_ENDPOINT(id), {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+    return handleResponse(res); // <--- usar handleResponse evita body already read
+}
+
+
 function initModalLogic() {
     const modalEl = document.getElementById('modalNewSale');
     modalInstance = new bootstrap.Modal(modalEl);
@@ -403,6 +438,20 @@ function initModalLogic() {
     const notas = document.getElementById('inputNotas').value.trim();
     const subtotal = cantidad * precioUnitario;
 
+    // Validate stock
+    try {
+        const inventoryDetails = await getInventoryDetails(selectedProductId);
+        const totalStock = inventoryDetails.reduce((sum, detail) => sum + (detail.cantidad || 0), 0);
+        if (totalStock < cantidad) {
+            displayError(`Stock insuficiente. Disponible: ${totalStock}, requerido: ${cantidad}`);
+            return;
+        }
+    } catch (err) {
+        console.warn('Error checking stock:', err);
+        displayError('Error al verificar stock. Intenta nuevamente.');
+        return;
+    }
+
     const isModifying = document.getElementById('formNewSale').getAttribute('data-modifying') === 'true';
     const modifyingSaleId = document.getElementById('formNewSale').getAttribute('data-sale-id');
 
@@ -451,6 +500,25 @@ function initModalLogic() {
             }
         } else {
             await createVentaDetails(detailsPayload);
+
+            const inventoryDetails = await getInventoryDetails(selectedProductId);
+            const availableDetail = inventoryDetails.find(d => d.cantidad > 0);
+            if (!availableDetail) {
+                displayError('No hay stock disponible para actualizar inventario.');
+            } else {
+                const newCantidad = availableDetail.cantidad - cantidad;
+                const updatePayload = {
+                    cantidad: newCantidad,
+                    estado: availableDetail.estado,
+                    disponible: newCantidad > 0
+                };
+                try {
+                    await updateInventoryDetail(availableDetail.idDetalle, updatePayload);
+                } catch (err) {
+                    console.warn('No se pudo actualizar inventario:', err);
+                    displayError(`Venta creada, pero no se pudo actualizar inventario: ${err.message}`);
+                }
+            }
         }
 
         modalInstance.hide();
@@ -460,6 +528,8 @@ function initModalLogic() {
         console.error('Error en registro de venta', err);
         if (err.message.includes('venta') || err.message.includes('Status')) {
             displayError(`Error creando venta: ${err.message || err}`);
+        } else if (err.message.includes('inventory') || err.message.includes('inventario')) {
+            displayError(`Venta creada, pero error actualizando inventario: ${err.message || err}`);
         } else {
             displayError(`Venta creada, pero error en detalle: ${err.message || err}`);
         }
