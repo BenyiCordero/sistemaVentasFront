@@ -177,11 +177,11 @@ function renderSaleRow(sale) {
     <td>${fecha}</td>
     <td>${clienteNombre}</td>
     <td>${productoNombre}</td>
-    <td class="text-end">${cantidad}</td>
-    <td class="text-end">${precioUnitario}</td>
-    <td class="text-end">${subtotal}</td>
-    <td class="text-end">${totalVenta}</td>
-    <td class="text-end">${descuento}</td>
+    <td>${cantidad}</td>
+    <td>${precioUnitario}</td>
+    <td>${subtotal}</td>
+    <td>${totalVenta}</td>
+    <td>${descuento}</td>
     <td>
         <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles"><i class="bi bi-eye"></i></button>
         <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil"></i></button>
