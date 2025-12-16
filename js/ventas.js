@@ -453,8 +453,11 @@ async function init() {
     max-height: 200px;
     overflow-y: auto;
     z-index: 1000;
-    width: 100%;
+    width: 300px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#inputCliente, #inputProducto {
+    max-width: 300px;
 }
 .autocomplete-item {
     padding: 8px 12px;
