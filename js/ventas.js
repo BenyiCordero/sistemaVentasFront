@@ -17,6 +17,111 @@ let currentSucursalId = null;
 let modalInstance = null;
 let currentClients = [];
 let currentProducts = [];
+let autocompleteInitialized = false;
+
+// Funciones de autocompletado
+function filterList(list, query, displayFn) {
+    if (!query) return list.slice(0, 20); // mostrar primeros 20 cuando vacío
+    return list.filter(item => displayFn(item).toLowerCase().includes(query.toLowerCase())).slice(0, 20);
+}
+
+function renderSuggestions(suggestionsEl, filtered, displayFn, onSelect) {
+    suggestionsEl.innerHTML = '';
+    if (filtered.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.textContent = 'No se encontraron resultados';
+        noResults.className = 'autocomplete-item no-results';
+        suggestionsEl.appendChild(noResults);
+        return;
+    }
+    filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.textContent = displayFn(item);
+        div.className = 'autocomplete-item';
+        div.addEventListener('click', () => onSelect(item));
+        suggestionsEl.appendChild(div);
+    });
+}
+
+function initAutocomplete(inputEl, hiddenEl, suggestionsEl, list, displayFn) {
+    let selectedIndex = -1;
+    let filtered = [];
+
+    function updateSuggestions(query) {
+        filtered = filterList(list, query, displayFn);
+        renderSuggestions(suggestionsEl, filtered, displayFn, (item) => {
+            inputEl.value = displayFn(item);
+            hiddenEl.value = item.idCliente || item.idProducto || item.id;
+            hideSuggestions();
+            // Si es producto, setear precio
+            if (item.precio !== undefined) {
+                const inputPrecio = document.getElementById('inputPrecioUnitario');
+                if (inputPrecio) inputPrecio.value = Number(item.precio).toFixed(2);
+                updateTotal();
+            }
+        });
+        selectedIndex = -1;
+    }
+
+    function showSuggestions() {
+        suggestionsEl.style.display = 'block';
+    }
+
+    function hideSuggestions() {
+        suggestionsEl.style.display = 'none';
+    }
+
+    inputEl.addEventListener('focus', () => {
+        updateSuggestions(inputEl.value);
+        showSuggestions();
+    });
+
+    inputEl.addEventListener('input', () => {
+        updateSuggestions(inputEl.value);
+        showSuggestions();
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+        if (!filtered.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex + 1) % filtered.length;
+            updateHighlight();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = selectedIndex <= 0 ? filtered.length - 1 : selectedIndex - 1;
+            updateHighlight();
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            const item = filtered[selectedIndex];
+            inputEl.value = displayFn(item);
+            hiddenEl.value = item.idCliente || item.idProducto || item.id;
+            hideSuggestions();
+            if (item.precio !== undefined) {
+                const inputPrecio = document.getElementById('inputPrecioUnitario');
+                if (inputPrecio) inputPrecio.value = Number(item.precio).toFixed(2);
+                updateTotal();
+            }
+        } else if (e.key === 'Escape') {
+            hideSuggestions();
+        }
+    });
+
+    inputEl.addEventListener('blur', () => {
+        setTimeout(hideSuggestions, 150); // delay para permitir click
+    });
+
+    function updateHighlight() {
+        const items = suggestionsEl.querySelectorAll('.autocomplete-item');
+        items.forEach((el, i) => {
+            if (i === selectedIndex) {
+                el.classList.add('selected');
+            } else {
+                el.classList.remove('selected');
+            }
+        });
+    }
+}
 
 function setSucursal(id) {
     currentSucursalId = id ? Number(id) : null;
@@ -145,15 +250,7 @@ function initModalLogic() {
     inputDescuento.addEventListener('input', updateTotal);
     inputImpuesto.addEventListener('input', updateTotal);
 
-    selectProducto.addEventListener('change', (e) => {
-        const selectedOption = e.target.selectedOptions[0];
-        if (selectedOption && selectedOption.dataset.precio) {
-            inputPrecioUnitario.value = Number(selectedOption.dataset.precio).toFixed(2);
-            updateTotal();
-        }
-    });
-
-    document.getElementById('btnOpenNewSale').addEventListener('click', () => {
+    document.getElementById('btnOpenNewSale').addEventListener('click', async () => {
         if (!currentSucursalId) {
             displayError('Primero debes guardar la sucursal.');
             return;
@@ -162,6 +259,32 @@ function initModalLogic() {
         inputTotal.value = '0.00';
         inputDescuento.value = '0';
         inputImpuesto.value = '0';
+        // Limpiar inputs de autocompletado
+        document.getElementById('inputCliente').value = '';
+        document.getElementById('idCliente').value = '';
+        document.getElementById('inputProducto').value = '';
+        document.getElementById('idProducto').value = '';
+
+        // Cargar listas si no inicializado
+        await loadClients();
+        await loadProducts();
+        if (!autocompleteInitialized) {
+            initAutocomplete(
+                document.getElementById('inputCliente'),
+                document.getElementById('idCliente'),
+                document.getElementById('clienteSuggestions'),
+                currentClients,
+                (client) => [client.persona.nombre, client.persona.primerApellido, client.persona.segundoApellido].filter(Boolean).join(' ')
+            );
+            initAutocomplete(
+                document.getElementById('inputProducto'),
+                document.getElementById('idProducto'),
+                document.getElementById('productoSuggestions'),
+                currentProducts,
+                (product) => product.nombre || product.modelo || `Producto ${product.idProducto}`
+            );
+            autocompleteInitialized = true;
+        }
         modalInstance.show();
     });
 
@@ -172,10 +295,10 @@ function initModalLogic() {
             return;
         }
 
-        const selectedClientId = document.getElementById('selectCliente').value;
+        const selectedClientId = document.getElementById('idCliente').value;
         const selectedClient = currentClients.find(c => (c.idCliente || c.id) == selectedClientId);
-        
-        const selectedProductId = selectProducto.value;
+
+        const selectedProductId = document.getElementById('idProducto').value;
         const selectedProduct = currentProducts.find(p => (p.idProducto || p.id) == selectedProductId);
 
         const payload = {
@@ -230,20 +353,6 @@ async function loadClients() {
         }
         const data = await res.json();
         currentClients = Array.isArray(data) ? data : (data?.clients ?? data?.data ?? []);
-
-        // Actualizar select de clientes en el modal
-        const selectCliente = document.getElementById('selectCliente');
-        if (selectCliente) {
-            selectCliente.innerHTML = '<option value="">Seleccionar cliente...</option>';
-            currentClients.forEach(client => {
-                const nombreCompleto = [client.persona.nombre, client.persona.primerApellido, client.persona.segundoApellido]
-                    .filter(Boolean).join(' ');
-                const option = document.createElement('option');
-                option.value = client.idCliente || client.id;
-                option.textContent = nombreCompleto;
-                selectCliente.appendChild(option);
-            });
-        }
     } catch (err) {
         console.error('loadClients error', err);
         currentClients = [];
@@ -267,19 +376,6 @@ async function loadProducts() {
         }
         const data = await res.json();
         currentProducts = Array.isArray(data) ? data : (data?.products ?? data?.data ?? []);
-
-        // Actualizar select de productos en el modal
-        const selectProducto = document.getElementById('selectProducto');
-        if (selectProducto) {
-            selectProducto.innerHTML = '<option value="">Seleccionar producto...</option>';
-            currentProducts.forEach(product => {
-                const option = document.createElement('option');
-                option.value = product.idProducto || product.id;
-                option.textContent = product.nombre || product.modelo || `Producto ${product.idProducto}`;
-                option.dataset.precio = product.precio || 0;
-                selectProducto.appendChild(option);
-            });
-        }
     } catch (err) {
         console.error('loadProducts error', err);
         currentProducts = [];
@@ -345,6 +441,34 @@ async function init() {
             console.warn('getUserProfile falló: ', err);
             return null;
         });
+
+        // Agregar estilos para autocompletado
+        const style = document.createElement('style');
+        style.textContent = `
+.autocomplete-dropdown {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    width: 100%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+.autocomplete-item:hover, .autocomplete-item.selected {
+    background: #f8f9fa;
+}
+.autocomplete-item.no-results {
+    color: #6c757d;
+    cursor: default;
+}
+`;
+        document.head.appendChild(style);
 
         showSucursalInputAlways(profile || {});
 
