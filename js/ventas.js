@@ -7,6 +7,7 @@ const BASE_API_URL = 'http://127.0.0.1:8081';
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
+const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
 
 const ventasTableBody = () => document.querySelector('#ventasTable tbody');
 const ventasEmpty = () => document.getElementById('ventas-empty');
@@ -15,6 +16,7 @@ const sucursalWarningEl = () => document.getElementById('sucursal-warning');
 let currentSucursalId = null;
 let modalInstance = null;
 let currentClients = [];
+let currentProducts = [];
 
 function setSucursal(id) {
     currentSucursalId = id ? Number(id) : null;
@@ -121,16 +123,32 @@ function initModalLogic() {
 
     const inputCantidad = document.getElementById('inputCantidad');
     const inputPrecioUnitario = document.getElementById('inputPrecioUnitario');
+    const inputDescuento = document.getElementById('inputDescuento');
+    const inputImpuesto = document.getElementById('inputImpuesto');
     const inputTotal = document.getElementById('inputTotal');
+    const selectProducto = document.getElementById('selectProducto');
 
     function updateTotal() {
         const cantidad = Number(inputCantidad.value || 0);
         const precio = Number(inputPrecioUnitario.value || 0);
-        inputTotal.value = (cantidad * precio).toFixed(2);
+        const descuento = Number(inputDescuento.value || 0);
+        const impuesto = Number(inputImpuesto.value || 0);
+        const subtotal = cantidad * precio;
+        inputTotal.value = (subtotal - descuento + impuesto).toFixed(2);
     }
 
     inputCantidad.addEventListener('input', updateTotal);
     inputPrecioUnitario.addEventListener('input', updateTotal);
+    inputDescuento.addEventListener('input', updateTotal);
+    inputImpuesto.addEventListener('input', updateTotal);
+
+    selectProducto.addEventListener('change', (e) => {
+        const selectedOption = e.target.selectedOptions[0];
+        if (selectedOption && selectedOption.dataset.precio) {
+            inputPrecioUnitario.value = Number(selectedOption.dataset.precio).toFixed(2);
+            updateTotal();
+        }
+    });
 
     document.getElementById('btnOpenNewSale').addEventListener('click', () => {
         if (!currentSucursalId) {
@@ -139,6 +157,8 @@ function initModalLogic() {
         }
         document.getElementById('formNewSale').reset();
         inputTotal.value = '0.00';
+        inputDescuento.value = '0.00';
+        inputImpuesto.value = '0.00';
         modalInstance.show();
     });
 
@@ -152,14 +172,20 @@ function initModalLogic() {
         const selectedClientId = document.getElementById('selectCliente').value;
         const selectedClient = currentClients.find(c => (c.idCliente || c.id) == selectedClientId);
         
+        const selectedProductId = selectProducto.value;
+        const selectedProduct = currentProducts.find(p => (p.idProducto || p.id) == selectedProductId);
+
         const payload = {
             sucursal: { idSucursal: currentSucursalId },
             cliente: selectedClient ? { idCliente: selectedClient.idCliente || selectedClient.id } : { nombre: document.getElementById('inputClienteNuevo').value.trim() },
             fecha: document.getElementById('inputFecha').value,
-            concepto: document.getElementById('inputConcepto').value.trim(),
+            concepto: selectedProduct ? selectedProduct.nombre : document.getElementById('inputConcepto').value.trim(),
             cantidad: Number(document.getElementById('inputCantidad').value || 0),
             precioUnitario: Number(document.getElementById('inputPrecioUnitario').value || 0),
+            descuento: Number(document.getElementById('inputDescuento').value || 0),
+            impuesto: Number(document.getElementById('inputImpuesto').value || 0),
             totalVenta: Number(document.getElementById('inputTotal').value || 0),
+            idProducto: selectedProductId ? Number(selectedProductId) : null,
             notas: document.getElementById('inputNotas').value.trim()
         };
 
@@ -201,7 +227,7 @@ async function loadClients() {
         }
         const data = await res.json();
         currentClients = Array.isArray(data) ? data : (data?.clients ?? data?.data ?? []);
-        
+
         // Actualizar select de clientes en el modal
         const selectCliente = document.getElementById('selectCliente');
         if (selectCliente) {
@@ -221,6 +247,42 @@ async function loadClients() {
     }
 }
 
+async function loadProducts() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(GET_PRODUCTS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!res.ok) {
+            let txt = `Status ${res.status}`;
+            try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+            throw new Error(txt);
+        }
+        const data = await res.json();
+        currentProducts = Array.isArray(data) ? data : (data?.products ?? data?.data ?? []);
+
+        // Actualizar select de productos en el modal
+        const selectProducto = document.getElementById('selectProducto');
+        if (selectProducto) {
+            selectProducto.innerHTML = '<option value="">Seleccionar producto...</option>';
+            currentProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.idProducto || product.id;
+                option.textContent = product.nombre || product.modelo || `Producto ${product.idProducto}`;
+                option.dataset.precio = product.precio || 0;
+                selectProducto.appendChild(option);
+            });
+        }
+    } catch (err) {
+        console.error('loadProducts error', err);
+        currentProducts = [];
+    }
+}
+
 async function loadSales() {
     try {
         if (!currentSucursalId) {
@@ -228,8 +290,9 @@ async function loadSales() {
             return;
         }
         
-        // Cargar clientes primero
+        // Cargar clientes y productos
         await loadClients();
+        await loadProducts();
         
         const sales = await fetchSalesBySucursal(currentSucursalId);
         renderSalesTable(sales);

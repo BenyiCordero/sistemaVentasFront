@@ -79,30 +79,47 @@
                         <h5 class="modal-title">Registrar nueva venta</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
-                    <div class="modal-body">
-                        <div class="row g-3">
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Seleccionar Cliente</label>
-                                <select name="cliente" id="selectCliente" class="form-select">
-                                    <option value="">Seleccionar cliente...</option>
-                                </select>
-                            </div>
+                     <div class="modal-body">
+                         <div class="row g-3">
+                             <div class="col-12 col-md-6">
+                                 <label class="form-label">Seleccionar Cliente</label>
+                                 <select name="cliente" id="selectCliente" class="form-select">
+                                     <option value="">Seleccionar cliente...</option>
+                                 </select>
+                             </div>
+                             <div class="col-12 col-md-6">
+                                 <label class="form-label">Seleccionar Producto</label>
+                                 <select name="producto" id="selectProducto" class="form-select">
+                                     <option value="">Seleccionar producto...</option>
+                                 </select>
+                             </div>
 
-                            <div class="col-12 col-md-4">
-                                <label class="form-label">Cantidad</label>
-                                <input name="cantidad" id="inputCantidad" class="form-control" type="number" min="1"
-                                    value="1" required>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                <label class="form-label">Precio unitario</label>
-                                <input name="precioUnitario" id="inputPrecioUnitario" class="form-control" type="number"
-                                    min="0" step="0.01" required>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                <label class="form-label">Total</label>
-                                <input name="total" id="inputTotal" class="form-control" type="number" step="0.01"
-                                    readonly>
-                            </div>
+                             <div class="col-12 col-md-3">
+                                 <label class="form-label">Cantidad</label>
+                                 <input name="cantidad" id="inputCantidad" class="form-control" type="number" min="1"
+                                     value="1" required>
+                             </div>
+                             <div class="col-12 col-md-3">
+                                 <label class="form-label">Precio unitario</label>
+                                 <input name="precioUnitario" id="inputPrecioUnitario" class="form-control" type="number"
+                                     min="0" step="0.01" required>
+                             </div>
+                             <div class="col-12 col-md-3">
+                                 <label class="form-label">Descuento</label>
+                                 <input name="descuento" id="inputDescuento" class="form-control" type="number"
+                                     min="0" step="0.01" value="0">
+                             </div>
+                             <div class="col-12 col-md-3">
+                                 <label class="form-label">Impuesto</label>
+                                 <input name="impuesto" id="inputImpuesto" class="form-control" type="number"
+                                     min="0" step="0.01" value="0">
+                             </div>
+
+                             <div class="col-12 col-md-4">
+                                 <label class="form-label">Total</label>
+                                 <input name="total" id="inputTotal" class="form-control" type="number" step="0.01"
+                                     readonly>
+                             </div>
 
                             <div class="col-12">
                                 <label class="form-label">Notas (opcional)</label>
