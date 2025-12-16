@@ -51,6 +51,16 @@ export async function fetchUserProfileFromApi() {
         }
     });
 
+    const sucursalRes = await fetch(`${BASE_API_URL}/sucursal/getByUsuario`,{
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({ email })
+    });
+
     if (!res.ok) {
         let txt = `Status ${res.status}`;
         try {
@@ -63,7 +73,21 @@ export async function fetchUserProfileFromApi() {
         throw new Error(txt);
     }
 
+    if (!sucursalRes.ok) {
+        let txt = `Status ${sucursalRes.status}`;
+        try {
+            const obj = await sucursalRes.json();
+            txt = obj.message || JSON.stringify(obj);
+        } catch (e) {
+            const t = await res.text();
+            if (t) txt = t;
+        }
+        throw new Error(txt);
+    }
+
     const data = await res.json();
+    const dataSuc = await sucursalRes.json();
+
     if (!data || !data.persona) throw new Error('Respuesta inválida de perfil');
     const persona = data.persona;
     const nombre = [
@@ -83,9 +107,7 @@ export async function fetchUserProfileFromApi() {
         nombreSimple: persona.nombre || '',
         primeros: persona.nombre ? persona.nombre.charAt(0).toUpperCase() : (nombre ? nombre.charAt(0).toUpperCase() : 'U'),
         telefono: persona.numeroTelefono,
-        idSucursal: data.sucursal?.idSucursal,
-        sucursalNombre: data.sucursal?.nombre,
-        sucursalKey: data.sucursal?.sucursalKey,
+        idSucursal: dataSuc.idSucursal,
         raw: data
     };
 

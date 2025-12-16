@@ -145,9 +145,6 @@ function initCharts() {
         }
     });
 }
-            }
-        }
-    });
 
     // Gráfico de distribución
     const distributionCtx = document.getElementById('chartDistribution').getContext('2d');
@@ -175,7 +172,6 @@ function initCharts() {
             }
         }
     });
-}
 
 function updateCharts(metrics) {
     if (!metrics) return;
