@@ -6,6 +6,7 @@ const BASE_API_URL = 'http://127.0.0.1:8081';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
+const CREATE_VENTADETAILS_ENDPOINT = `${BASE_API_URL}/sellDetails`;
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
 
@@ -214,12 +215,20 @@ async function createSale(salePayload) {
         },
         body: JSON.stringify(salePayload)
     });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
+    return handleResponse(res);
+}
+
+async function createVentaDetails(detailsPayload) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(CREATE_VENTADETAILS_ENDPOINT, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(detailsPayload)
+    });
+    return handleResponse(res);
 }
 
 function initModalLogic() {
@@ -302,33 +311,61 @@ function initModalLogic() {
         const selectedProductId = document.getElementById('idProducto').value;
         const selectedProduct = currentProducts.find(p => (p.idProducto || p.id) == selectedProductId);
 
-        const payload = {
-            sucursal: { idSucursal: currentSucursalId },
-            cliente: selectedClient ? { idCliente: selectedClient.idCliente || selectedClient.id } : { nombre: document.getElementById('inputClienteNuevo').value.trim() },
-            fecha: document.getElementById('inputFecha').value,
-            concepto: selectedProduct ? selectedProduct.nombre : document.getElementById('inputConcepto').value.trim(),
-            cantidad: Number(document.getElementById('inputCantidad').value || 0),
-            precioUnitario: Number(document.getElementById('inputPrecioUnitario').value || 0),
-            descuento: Number(document.getElementById('inputDescuento').value || 0),
-            impuesto: Number(document.getElementById('inputImpuesto').value || 0),
-            totalVenta: Number(document.getElementById('inputTotal').value || 0),
-            idProducto: selectedProductId ? Number(selectedProductId) : null,
-            notas: document.getElementById('inputNotas').value.trim()
-        };
+        if (!selectedClient || !selectedProduct) {
+            displayError('Debes seleccionar un cliente y un producto.');
+            return;
+        }
+
+        const cantidad = Number(document.getElementById('inputCantidad').value || 0);
+        const precioUnitario = Number(document.getElementById('inputPrecioUnitario').value || 0);
+        const descuento = Number(document.getElementById('inputDescuento').value || 0);
+        const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
+        const totalVenta = Number(document.getElementById('inputTotal').value || 0);
+        const notas = document.getElementById('inputNotas').value.trim();
+
+        const subtotal = cantidad * precioUnitario;
 
         try {
             const btn = document.getElementById('btnSubmitSale');
             btn.disabled = true;
             btn.textContent = 'Registrando...';
 
-            await createSale(payload);
+            const profile = await getUserProfile();
+            const idTrabajador = profile.id;
+
+            const ventaPayload = {
+                idSucursal: currentSucursalId,
+                idCliente: selectedClient.idCliente || selectedClient.id,
+                idTrabajador,
+                totalVenta,
+                descuento,
+                impuesto,
+                notas
+            };
+
+            const ventaResponse = await createSale(ventaPayload);
+            const idVenta = ventaResponse.idVenta;
+
+            const detailsPayload = {
+                idProducto: Number(selectedProductId),
+                idVenta,
+                cantidad,
+                precio: precioUnitario,
+                subtotal
+            };
+
+            await createVentaDetails(detailsPayload);
 
             modalInstance.hide();
-            displayMessage && displayMessage('Venta registrada correctamente.');
+            displayMessage('Venta registrada correctamente.');
             await loadSales();
         } catch (err) {
-            console.error('createSale error', err);
-            displayError(`No se pudo registrar la venta: ${err.message || err}`);
+            console.error('Error en registro de venta', err);
+            if (err.message.includes('venta') || err.message.includes('Status')) {
+                displayError(`Error creando venta: ${err.message || err}`);
+            } else {
+                displayError(`Venta creada, pero error en detalle: ${err.message || err}`);
+            }
         } finally {
             const btn = document.getElementById('btnSubmitSale');
             btn.disabled = false;
@@ -435,6 +472,19 @@ function initSucursalInputHandlers() {
         alert('Ver venta id: ' + id);
     });
 }
+
+async function handleResponse(res) {
+    const text = await res.text(); // leer body solo una vez
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+
+    if (!res.ok) {
+        const msg = data?.message || text || `Status ${res.status}`;
+        throw new Error(msg);
+    }
+    return data;
+}
+
 
 async function init() {
     try {
