@@ -173,18 +173,18 @@ function renderSaleRow(sale) {
     const descuento = typeof sale.descuento !== 'undefined' ? Number(sale.descuento).toFixed(2) : '';
 
     tr.innerHTML = `
-    <td>${sale.idVenta ?? sale.id ?? ''}</td>
-    <td>${fecha}</td>
-    <td>${clienteNombre}</td>
-    <td>${productoNombre}</td>
-    <td>${cantidad}</td>
-    <td>${precioUnitario}</td>
-    <td>${subtotal}</td>
-    <td>${totalVenta}</td>
-    <td>${descuento}</td>
-    <td>
-        <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles"><i class="bi bi-eye"></i></button>
-        <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil"></i></button>
+    <td><i class="bi bi-receipt text-muted"></i> ${sale.idVenta ?? sale.id ?? ''}</td>
+    <td><i class="bi bi-calendar-event text-muted"></i> ${fecha}</td>
+    <td><i class="bi bi-person text-muted"></i> <span class="fw-semibold">${clienteNombre}</span></td>
+    <td><i class="bi bi-box-seam text-muted"></i> <span class="text-truncate" style="max-width: 150px;" title="${productoNombre}">${productoNombre || 'N/A'}</span></td>
+    <td>${cantidad ? `<span class="badge bg-primary">${cantidad}</span>` : ''}</td>
+    <td>${precioUnitario ? `<span class="badge bg-success">$ ${precioUnitario}</span>` : ''}</td>
+    <td>${subtotal ? `<span class="badge bg-info">$ ${subtotal}</span>` : ''}</td>
+    <td>${totalVenta ? `<span class="badge bg-warning">$ ${totalVenta}</span>` : ''}</td>
+    <td>${descuento ? `<span class="badge bg-danger">${descuento}%</span>` : ''}</td>
+    <td class="text-center">
+        <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
     </td>
     `;
     return tr;
@@ -520,7 +520,7 @@ async function loadProducts() {
 }
 
 function openViewModal(idVenta) {
-    const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]'); // Assume we cache sales
+    const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]');
     const sale = sales.find(s => (s.idVenta || s.id) == idVenta);
     if (!sale) {
         displayError('Venta no encontrada.');
@@ -534,30 +534,60 @@ function openViewModal(idVenta) {
             .filter(Boolean).join(' ') : (sale.nombreCliente || 'Cliente');
 
     let html = `
-        <p><strong>ID Venta:</strong> ${sale.idVenta || sale.id}</p>
-        <p><strong>Fecha:</strong> ${fecha}</p>
-        <p><strong>Cliente:</strong> ${clienteNombre}</p>
-        <p><strong>Total:</strong> ${Number(sale.totalVenta || sale.total).toFixed(2)}</p>
-        <p><strong>Descuento:</strong> ${Number(sale.descuento || 0).toFixed(2)}</p>
-        <p><strong>Impuesto:</strong> ${Number(sale.impuesto || 0).toFixed(2)}</p>
-        <p><strong>Notas:</strong> ${sale.notas || ''}</p>
-        <h6>Detalles del Producto:</h6>
-        <ul>
+        <div class="card mb-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Información General de la Venta</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <strong><i class="bi bi-receipt text-muted"></i> ID Venta:</strong> <span class="badge bg-secondary">${sale.idVenta || sale.id}</span>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <strong><i class="bi bi-calendar-event text-muted"></i> Fecha:</strong> ${fecha}
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <strong><i class="bi bi-person text-muted"></i> Cliente:</strong> <span class="fw-semibold">${clienteNombre}</span>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <strong><i class="bi bi-cash text-muted"></i> Total:</strong> <span class="badge bg-success">$ ${Number(sale.totalVenta || sale.total).toFixed(2)}</span>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <strong><i class="bi bi-percent text-muted"></i> Descuento:</strong> <span class="badge bg-danger">${Number(sale.descuento || 0).toFixed(2)}%</span>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <strong><i class="bi bi-calculator text-muted"></i> Impuesto:</strong> <span class="badge bg-warning">${Number(sale.impuesto || 0).toFixed(2)}%</span>
+                    </div>
+                    <div class="col-12">
+                        <strong><i class="bi bi-sticky text-muted"></i> Notas:</strong> ${sale.notas || 'Sin notas'}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-box-seam text-primary"></i> Detalles del Producto</h6>
+            </div>
+            <div class="card-body">
     `;
 
     if (sale.details && sale.details.length > 0) {
+        html += '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unitario</th><th>Subtotal</th></tr></thead><tbody>';
         sale.details.forEach(detail => {
             html += `
-                <li><strong>Producto:</strong> ${detail.producto?.nombre || detail.nombreProducto || ''}</li>
-                <li><strong>Cantidad:</strong> ${detail.cantidad}</li>
-                <li><strong>Precio Unitario:</strong> ${Number(detail.precio).toFixed(2)}</li>
-                <li><strong>Subtotal:</strong> ${Number(detail.subtotal).toFixed(2)}</li>
+                <tr>
+                    <td><i class="bi bi-box text-muted"></i> ${detail.producto?.nombre || detail.nombreProducto || 'N/A'}</td>
+                    <td><span class="badge bg-primary">${detail.cantidad}</span></td>
+                    <td><span class="badge bg-success">$ ${Number(detail.precio).toFixed(2)}</span></td>
+                    <td><span class="badge bg-info">$ ${Number(detail.subtotal).toFixed(2)}</span></td>
+                </tr>
             `;
         });
+        html += '</tbody></table></div>';
     } else {
-        html += '<li>No hay detalles disponibles.</li>';
+        html += '<p class="text-muted">No hay detalles disponibles para esta venta.</p>';
     }
-    html += '</ul>';
+    html += '</div></div>';
 
     content.innerHTML = html;
     const modal = new bootstrap.Modal(document.getElementById('modalViewSale'));
