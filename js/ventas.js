@@ -134,7 +134,10 @@ function initModalLogic() {
         const descuento = Number(inputDescuento.value || 0);
         const impuesto = Number(inputImpuesto.value || 0);
         const subtotal = cantidad * precio;
-        inputTotal.value = (subtotal - descuento + impuesto).toFixed(2);
+        const descuentoAmount = subtotal * (descuento / 100);
+        const subtotalAfterDescuento = subtotal - descuentoAmount;
+        const impuestoAmount = subtotalAfterDescuento * (impuesto / 100);
+        inputTotal.value = (subtotalAfterDescuento + impuestoAmount).toFixed(2);
     }
 
     inputCantidad.addEventListener('input', updateTotal);
@@ -157,8 +160,8 @@ function initModalLogic() {
         }
         document.getElementById('formNewSale').reset();
         inputTotal.value = '0.00';
-        inputDescuento.value = '0.00';
-        inputImpuesto.value = '0.00';
+        inputDescuento.value = '0';
+        inputImpuesto.value = '0';
         modalInstance.show();
     });
 
