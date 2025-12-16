@@ -53,12 +53,12 @@ function initAutocomplete(inputEl, hiddenEl, suggestionsEl, list, displayFn) {
             inputEl.value = displayFn(item);
             hiddenEl.value = item.idCliente || item.idProducto || item.id;
             hideSuggestions();
-            // Si es producto, setear precio
-            if (item.precio !== undefined) {
-                const inputPrecio = document.getElementById('inputPrecioUnitario');
-                if (inputPrecio) inputPrecio.value = Number(item.precio).toFixed(2);
-                updateTotal();
-            }
+        // Si es producto, setear precio
+        if (item.precio !== undefined) {
+            const inputPrecio = document.getElementById('inputPrecioUnitario');
+            if (inputPrecio) inputPrecio.value = Number(item.precio).toFixed(2);
+        }
+        updateTotal();
         });
         selectedIndex = -1;
     }
@@ -97,11 +97,11 @@ function initAutocomplete(inputEl, hiddenEl, suggestionsEl, list, displayFn) {
             inputEl.value = displayFn(item);
             hiddenEl.value = item.idCliente || item.idProducto || item.id;
             hideSuggestions();
-            if (item.precio !== undefined) {
-                const inputPrecio = document.getElementById('inputPrecioUnitario');
-                if (inputPrecio) inputPrecio.value = Number(item.precio).toFixed(2);
-                updateTotal();
-            }
+    if (item.precio !== undefined) {
+        const inputPrecio = document.getElementById('inputPrecioUnitario');
+        if (inputPrecio) inputPrecio.value = Number(item.precio).toFixed(2);
+    }
+    updateTotal();
         } else if (e.key === 'Escape') {
             hideSuggestions();
         }
@@ -257,6 +257,7 @@ function initModalLogic() {
         }
         document.getElementById('formNewSale').reset();
         inputTotal.value = '0.00';
+        inputPrecioUnitario.value = '0.00';
         inputDescuento.value = '0';
         inputImpuesto.value = '0';
         // Limpiar inputs de autocompletado
