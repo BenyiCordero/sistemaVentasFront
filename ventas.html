@@ -44,16 +44,20 @@
                 <div class="card-body">
                     <div class="table-responsive">
                         <table id="ventasTable" class="table table-striped table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Fecha</th>
-                                    <th>Cliente</th>
-                                    <th>Total</th>
-                                    <th>Descuento</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
+                             <thead>
+                                 <tr>
+                                     <th>ID</th>
+                                     <th>Fecha</th>
+                                     <th>Cliente</th>
+                                     <th>Producto</th>
+                                     <th>Cantidad</th>
+                                     <th>Precio Unitario</th>
+                                     <th>Subtotal</th>
+                                     <th>Total</th>
+                                     <th>Descuento</th>
+                                     <th>Acciones</th>
+                                 </tr>
+                             </thead>
                             <tbody>
                                 <!-- filas inyectadas por JS -->
                             </tbody>
@@ -70,8 +74,23 @@
 
     <div id="footer-placeholder"></div>
 
-    <!-- Modal: Registrar venta -->
-    <div class="modal fade" id="modalNewSale" tabindex="-1" aria-hidden="true">
+     <!-- Modal: Ver detalles de venta -->
+     <div class="modal fade" id="modalViewSale" tabindex="-1" aria-hidden="true">
+         <div class="modal-dialog modal-lg modal-dialog-centered">
+             <div class="modal-content">
+                 <div class="modal-header">
+                     <h5 class="modal-title">Detalles de Venta</h5>
+                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                 </div>
+                 <div class="modal-body" id="viewSaleContent">
+                     <!-- Detalles se inyectan aquí -->
+                 </div>
+             </div>
+         </div>
+     </div>
+
+     <!-- Modal: Registrar/Modificar venta -->
+     <div class="modal fade" id="modalNewSale" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <form id="formNewSale">

@@ -7,6 +7,9 @@ const BASE_API_URL = 'http://127.0.0.1:8081';
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
 const CREATE_VENTADETAILS_ENDPOINT = `${BASE_API_URL}/sellDetails`;
+const GET_VENTA_DETAILS_BY_VENTA = (idVenta) => `${BASE_API_URL}/sellDetails/venta/${idVenta}`;
+const UPDATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
+const UPDATE_VENTADETAILS_ENDPOINT = `${BASE_API_URL}/sellDetails`;
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
 
@@ -156,19 +159,32 @@ function showSucursalInputAlways(profile) {
 function renderSaleRow(sale) {
     const tr = document.createElement('tr');
     const fecha = new Date(sale.fecha || sale.createdAt || Date.now()).toLocaleString();
-    const clienteNombre = sale.cliente?.persona ? 
+    const clienteNombre = sale.cliente?.persona ?
         [sale.cliente.persona.nombre, sale.cliente.persona.primerApellido, sale.cliente.persona.segundoApellido]
-            .filter(Boolean).join(' ') : 
+            .filter(Boolean).join(' ') :
         (sale.nombreCliente || 'Cliente');
-    
+
+    const details = sale.details && sale.details.length > 0 ? sale.details[0] : null;
+    const productoNombre = details?.producto?.nombre || details?.nombreProducto || '';
+    const cantidad = details?.cantidad || '';
+    const precioUnitario = details?.precio ? Number(details.precio).toFixed(2) : '';
+    const subtotal = details?.subtotal ? Number(details.subtotal).toFixed(2) : '';
+    const totalVenta = typeof (sale.totalVenta || sale.total) !== 'undefined' ? Number(sale.totalVenta || sale.total).toFixed(2) : '';
+    const descuento = typeof sale.descuento !== 'undefined' ? Number(sale.descuento).toFixed(2) : '';
+
     tr.innerHTML = `
     <td>${sale.idVenta ?? sale.id ?? ''}</td>
     <td>${fecha}</td>
     <td>${clienteNombre}</td>
-    <td>${sale.concepto ?? sale.descripcion ?? ''}</td>
-    <td class="text-end">${typeof (sale.totalVenta || sale.total) !== 'undefined' ? Number(sale.totalVenta || sale.total).toFixed(2) : ''}</td>
+    <td>${productoNombre}</td>
+    <td class="text-end">${cantidad}</td>
+    <td class="text-end">${precioUnitario}</td>
+    <td class="text-end">${subtotal}</td>
+    <td class="text-end">${totalVenta}</td>
+    <td class="text-end">${descuento}</td>
     <td>
-        <button class="btn btn-sm btn-outline-secondary btn-view" data-id="${sale.idVenta || sale.id}"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil"></i></button>
     </td>
     `;
     return tr;
@@ -182,6 +198,7 @@ function renderSalesTable(sales) {
         return;
     }
     ventasEmpty().classList.add('d-none');
+    localStorage.setItem('cachedSales', JSON.stringify(sales)); // Cache for modals
     sales.forEach(s => tbody.appendChild(renderSaleRow(s)));
 }
 
@@ -228,7 +245,67 @@ async function createVentaDetails(detailsPayload) {
         },
         body: JSON.stringify(detailsPayload)
     });
-    return handleResponse(res);
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    return await res.json();
+}
+
+async function fetchVentaDetails(idVenta) {
+    const token = localStorage.getItem('authToken');
+    const url = GET_VENTA_DETAILS_BY_VENTA(idVenta);
+    const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data?.details ?? []);
+}
+
+async function updateSale(ventaPayload, idVenta) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${UPDATE_VENTA_ENDPOINT}/${idVenta}`, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(ventaPayload)
+    });
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    return await res.json();
+}
+
+async function updateVentaDetails(detailsPayload, idVentaDetails) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${UPDATE_VENTADETAILS_ENDPOINT}/${idVentaDetails}`, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(detailsPayload)
+    });
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    return await res.json();
 }
 
 function initModalLogic() {
@@ -265,6 +342,8 @@ function initModalLogic() {
             return;
         }
         document.getElementById('formNewSale').reset();
+        document.getElementById('formNewSale').removeAttribute('data-modifying');
+        document.getElementById('formNewSale').removeAttribute('data-sale-id');
         inputTotal.value = '0.00';
         inputPrecioUnitario.value = '0.00';
         inputDescuento.value = '0';
@@ -299,79 +378,99 @@ function initModalLogic() {
     });
 
     document.getElementById('formNewSale').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!currentSucursalId) {
-            displayError('No hay sucursal definida. Ingresa el ID de sucursal primero.');
-            return;
-        }
+    e.preventDefault();
+    if (!currentSucursalId) {
+        displayError('No hay sucursal definida. Ingresa el ID de sucursal primero.');
+        return;
+    }
 
-        const selectedClientId = document.getElementById('idCliente').value;
-        const selectedClient = currentClients.find(c => (c.idCliente || c.id) == selectedClientId);
+    const selectedClientId = document.getElementById('idCliente').value;
+    const selectedClient = currentClients.find(c => (c.idCliente || c.id) == selectedClientId);
 
-        const selectedProductId = document.getElementById('idProducto').value;
-        const selectedProduct = currentProducts.find(p => (p.idProducto || p.id) == selectedProductId);
+    const selectedProductId = document.getElementById('idProducto').value;
+    const selectedProduct = currentProducts.find(p => (p.idProducto || p.id) == selectedProductId);
 
-        if (!selectedClient || !selectedProduct) {
-            displayError('Debes seleccionar un cliente y un producto.');
-            return;
-        }
+    if (!selectedClient || !selectedProduct) {
+        displayError('Debes seleccionar un cliente y un producto.');
+        return;
+    }
 
-        const cantidad = Number(document.getElementById('inputCantidad').value || 0);
-        const precioUnitario = Number(document.getElementById('inputPrecioUnitario').value || 0);
-        const descuento = Number(document.getElementById('inputDescuento').value || 0);
-        const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
-        const totalVenta = Number(document.getElementById('inputTotal').value || 0);
-        const notas = document.getElementById('inputNotas').value.trim();
+    const cantidad = Number(document.getElementById('inputCantidad').value || 0);
+    const precioUnitario = Number(document.getElementById('inputPrecioUnitario').value || 0);
+    const descuento = Number(document.getElementById('inputDescuento').value || 0);
+    const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
+    const totalVenta = Number(document.getElementById('inputTotal').value || 0);
+    const notas = document.getElementById('inputNotas').value.trim();
+    const subtotal = cantidad * precioUnitario;
 
-        const subtotal = cantidad * precioUnitario;
+    const isModifying = document.getElementById('formNewSale').getAttribute('data-modifying') === 'true';
+    const modifyingSaleId = document.getElementById('formNewSale').getAttribute('data-sale-id');
 
-        try {
-            const btn = document.getElementById('btnSubmitSale');
-            btn.disabled = true;
-            btn.textContent = 'Registrando...';
+    const btn = document.getElementById('btnSubmitSale');
+    btn.disabled = true;
+    btn.textContent = isModifying ? 'Modificando...' : 'Registrando...';
 
-            const profile = await getUserProfile();
-            const idTrabajador = profile.id;
+    try {
+        const profile = await getUserProfile();
+        const idTrabajador = profile.id;
 
-            const ventaPayload = {
-                idSucursal: currentSucursalId,
-                idCliente: selectedClient.idCliente || selectedClient.id,
-                idTrabajador,
-                totalVenta,
-                descuento,
-                impuesto,
-                notas
-            };
+        // Payload correcto, con campos planos
+        const ventaPayload = {
+            idSucursal: currentSucursalId,
+            idCliente: selectedClient.idCliente || selectedClient.id,
+            idTrabajador,
+            totalVenta,
+            descuento,
+            impuesto,
+            notas
+        };
 
+        let idVenta;
+        if (isModifying) {
+            await updateSale(ventaPayload, modifyingSaleId);
+            idVenta = modifyingSaleId;
+        } else {
             const ventaResponse = await createSale(ventaPayload);
-            const idVenta = ventaResponse.idVenta;
-
-            const detailsPayload = {
-                idProducto: Number(selectedProductId),
-                idVenta,
-                cantidad,
-                precio: precioUnitario,
-                subtotal
-            };
-
-            await createVentaDetails(detailsPayload);
-
-            modalInstance.hide();
-            displayMessage('Venta registrada correctamente.');
-            await loadSales();
-        } catch (err) {
-            console.error('Error en registro de venta', err);
-            if (err.message.includes('venta') || err.message.includes('Status')) {
-                displayError(`Error creando venta: ${err.message || err}`);
-            } else {
-                displayError(`Venta creada, pero error en detalle: ${err.message || err}`);
-            }
-        } finally {
-            const btn = document.getElementById('btnSubmitSale');
-            btn.disabled = false;
-            btn.textContent = 'Registrar venta';
+            idVenta = ventaResponse.idVenta;
         }
-    });
+
+        const detailsPayload = {
+            idProducto: Number(selectedProductId),
+            idVenta,
+            cantidad,
+            precio: precioUnitario,
+            subtotal
+        };
+
+        if (isModifying) {
+            const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]');
+            const sale = sales.find(s => (s.idVenta || s.id) == modifyingSaleId);
+            if (sale?.details?.length > 0) {
+                const detailId = sale.details[0].idVentaDetails || sale.details[0].id;
+                await updateVentaDetails(detailsPayload, detailId);
+            }
+        } else {
+            await createVentaDetails(detailsPayload);
+        }
+
+        modalInstance.hide();
+        displayMessage(isModifying ? 'Venta modificada correctamente.' : 'Venta registrada correctamente.');
+        await loadSales();
+    } catch (err) {
+        console.error('Error en registro de venta', err);
+        if (err.message.includes('venta') || err.message.includes('Status')) {
+            displayError(`Error creando venta: ${err.message || err}`);
+        } else {
+            displayError(`Venta creada, pero error en detalle: ${err.message || err}`);
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Registrar venta';
+        document.getElementById('formNewSale').removeAttribute('data-modifying');
+        document.getElementById('formNewSale').removeAttribute('data-sale-id');
+        document.querySelector('#modalNewSale .modal-title').textContent = 'Registrar nueva venta';
+    }
+});
 }
 
 async function loadClients() {
@@ -420,6 +519,101 @@ async function loadProducts() {
     }
 }
 
+function openViewModal(idVenta) {
+    const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]'); // Assume we cache sales
+    const sale = sales.find(s => (s.idVenta || s.id) == idVenta);
+    if (!sale) {
+        displayError('Venta no encontrada.');
+        return;
+    }
+
+    const content = document.getElementById('viewSaleContent');
+    const fecha = new Date(sale.fecha || sale.createdAt || Date.now()).toLocaleString();
+    const clienteNombre = sale.cliente?.persona ?
+        [sale.cliente.persona.nombre, sale.cliente.persona.primerApellido, sale.cliente.persona.segundoApellido]
+            .filter(Boolean).join(' ') : (sale.nombreCliente || 'Cliente');
+
+    let html = `
+        <p><strong>ID Venta:</strong> ${sale.idVenta || sale.id}</p>
+        <p><strong>Fecha:</strong> ${fecha}</p>
+        <p><strong>Cliente:</strong> ${clienteNombre}</p>
+        <p><strong>Total:</strong> ${Number(sale.totalVenta || sale.total).toFixed(2)}</p>
+        <p><strong>Descuento:</strong> ${Number(sale.descuento || 0).toFixed(2)}</p>
+        <p><strong>Impuesto:</strong> ${Number(sale.impuesto || 0).toFixed(2)}</p>
+        <p><strong>Notas:</strong> ${sale.notas || ''}</p>
+        <h6>Detalles del Producto:</h6>
+        <ul>
+    `;
+
+    if (sale.details && sale.details.length > 0) {
+        sale.details.forEach(detail => {
+            html += `
+                <li><strong>Producto:</strong> ${detail.producto?.nombre || detail.nombreProducto || ''}</li>
+                <li><strong>Cantidad:</strong> ${detail.cantidad}</li>
+                <li><strong>Precio Unitario:</strong> ${Number(detail.precio).toFixed(2)}</li>
+                <li><strong>Subtotal:</strong> ${Number(detail.subtotal).toFixed(2)}</li>
+            `;
+        });
+    } else {
+        html += '<li>No hay detalles disponibles.</li>';
+    }
+    html += '</ul>';
+
+    content.innerHTML = html;
+    const modal = new bootstrap.Modal(document.getElementById('modalViewSale'));
+    modal.show();
+}
+
+async function openModifyModal(idVenta) {
+    const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]');
+    const sale = sales.find(s => (s.idVenta || s.id) == idVenta);
+    if (!sale) {
+        displayError('Venta no encontrada.');
+        return;
+    }
+
+    // Pre-fill modal with sale data
+    document.getElementById('formNewSale').reset();
+    const inputCliente = document.getElementById('inputCliente');
+    const idCliente = document.getElementById('idCliente');
+    const inputProducto = document.getElementById('inputProducto');
+    const idProducto = document.getElementById('idProducto');
+    const inputCantidad = document.getElementById('inputCantidad');
+    const inputPrecioUnitario = document.getElementById('inputPrecioUnitario');
+    const inputDescuento = document.getElementById('inputDescuento');
+    const inputImpuesto = document.getElementById('inputImpuesto');
+    const inputTotal = document.getElementById('inputTotal');
+    const inputNotas = document.getElementById('inputNotas');
+
+    const clienteNombre = sale.cliente?.persona ?
+        [sale.cliente.persona.nombre, sale.cliente.persona.primerApellido, sale.cliente.persona.segundoApellido]
+            .filter(Boolean).join(' ') : (sale.nombreCliente || '');
+    inputCliente.value = clienteNombre;
+    idCliente.value = sale.cliente?.idCliente || '';
+
+    if (sale.details && sale.details.length > 0) {
+        const detail = sale.details[0];
+        const productoNombre = detail.producto?.nombre || detail.nombreProducto || '';
+        inputProducto.value = productoNombre;
+        idProducto.value = detail.idProducto;
+        inputCantidad.value = detail.cantidad;
+        inputPrecioUnitario.value = Number(detail.precio).toFixed(2);
+        inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
+        inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
+        inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
+        inputNotas.value = sale.notas || '';
+    }
+
+    // Set flag for modification
+    document.getElementById('formNewSale').setAttribute('data-modifying', 'true');
+    document.getElementById('formNewSale').setAttribute('data-sale-id', idVenta);
+
+    // Change modal title
+    document.querySelector('#modalNewSale .modal-title').textContent = 'Modificar Venta';
+
+    modalInstance.show();
+}
+
 async function loadSales() {
     try {
         if (!currentSucursalId) {
@@ -432,6 +626,16 @@ async function loadSales() {
         await loadProducts();
         
         const sales = await fetchSalesBySucursal(currentSucursalId);
+        // Fetch details for each sale
+        for (const sale of sales) {
+            try {
+                const details = await fetchVentaDetails(sale.idVenta || sale.id);
+                sale.details = details;
+            } catch (err) {
+                console.warn(`Error fetching details for sale ${sale.idVenta || sale.id}:`, err);
+                sale.details = [];
+            }
+        }
         renderSalesTable(sales);
     } catch (err) {
         console.error('loadSales error', err);
@@ -465,11 +669,16 @@ function initSucursalInputHandlers() {
         loadSales();
     });
 
-    document.querySelector('#ventasTable tbody').addEventListener('click', (e) => {
-        const btn = e.target.closest('.btn-view');
-        if (!btn) return;
-        const id = btn.getAttribute('data-id');
-        alert('Ver venta id: ' + id);
+    document.querySelector('#ventasTable tbody').addEventListener('click', async (e) => {
+        const btnView = e.target.closest('.btn-view');
+        const btnModify = e.target.closest('.btn-modify');
+        if (btnView) {
+            const id = btnView.getAttribute('data-id');
+            openViewModal(id);
+        } else if (btnModify) {
+            const id = btnModify.getAttribute('data-id');
+            await openModifyModal(id);
+        }
     });
 }
 
