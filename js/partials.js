@@ -76,6 +76,7 @@ function setupCommonBehavior() {
         btnLogout.addEventListener('click', (e) => {
             e.preventDefault();
             localStorage.removeItem('authToken');
+            localStorage.removeItem('sucursalId');            
             clearUserProfile();
             window.location.href = 'landingPage.html';
         });

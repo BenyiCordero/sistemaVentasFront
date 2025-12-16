@@ -211,6 +211,7 @@ if (logoutButton) {
     logoutButton.addEventListener('click', () => {
         console.log('Logout button clicked. Removing token and redirecting to login.html');
         localStorage.removeItem('authToken');
+        localStorage.removeItem('sucursalId');
         window.location.href = 'index.html';
     });
 }
