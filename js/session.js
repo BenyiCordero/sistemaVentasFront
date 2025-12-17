@@ -1,5 +1,5 @@
 // js/session.js
-const BASE_API_URL = 'http://127.0.0.1:8081';
+const BASE_API_URL = '';
 const GET_NAME_API_URL = `${BASE_API_URL}/worker/getByEmail`;
 
 const CACHE_TTL_MS = 60 * 60 * 1000;

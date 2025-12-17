@@ -1,7 +1,7 @@
 // js/gastos.js
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = 'http://127.0.0.1:8081';
+const BASE_API_URL = '';
 const token = localStorage.getItem('authToken');
 
 const GASTO_API = `${BASE_API_URL}/gasto`;
