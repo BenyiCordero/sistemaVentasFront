@@ -1,7 +1,7 @@
 // js/gastos.js
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '';
+const BASE_API_URL = '/api';
 const token = localStorage.getItem('authToken');
 
 const GASTO_API = `${BASE_API_URL}/gasto`;

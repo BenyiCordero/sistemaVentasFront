@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '';
+const BASE_API_URL = '/api';
 
 const GET_REPORTS_ENDPOINT = `${BASE_API_URL}/sell`;
 const GENERATE_REPORT_ENDPOINT = `${BASE_API_URL}/sell`;
