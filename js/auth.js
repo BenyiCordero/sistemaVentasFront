@@ -10,7 +10,7 @@ const showLoginLink = document.getElementById('show-login');
 const loginError = document.getElementById('auth-error');
 const authMessage = document.getElementById('auth-message'); 
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081';
 const LOGIN_API_URL = `${BASE_API_URL}/auth/login`;
 const REGISTER_API_URL = `${BASE_API_URL}/auth/register`;
 

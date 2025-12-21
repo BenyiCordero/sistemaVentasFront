@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile, clearUserProfile } from './session.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081';
 
 // No hay endpoints específicos para perfil en el backend actual
 const UPDATE_PROFILE_ENDPOINT = null;
