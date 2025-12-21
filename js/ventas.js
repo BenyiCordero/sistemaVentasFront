@@ -388,7 +388,7 @@ function initModalLogic() {
         inputPrecioUnitario.value = '0.00';
         inputDescuento.value = '0';
         inputImpuesto.value = '0';
-        document.getElementById('inputMetodoPago').value = 'efectivo';
+        document.getElementById('inputMetodoPago').value = '';
         // Limpiar inputs de autocompletado
         document.getElementById('inputCliente').value = '';
         document.getElementById('idCliente').value = '';
@@ -446,6 +446,10 @@ function initModalLogic() {
      const totalVenta = Number(document.getElementById('inputTotal').value || 0);
      const notas = document.getElementById('inputNotas').value.trim();
      const metodoPago = document.getElementById('inputMetodoPago').value;
+     if (!metodoPago) {
+         displayError('Debes seleccionar un método de pago.');
+         return;
+     }
      const subtotal = cantidad * precioUnitario;
 
     // Validate stock
@@ -752,7 +756,7 @@ async function openModifyModal(idVenta) {
          inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
          inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
          inputNotas.value = sale.notas || '';
-         document.getElementById('inputMetodoPago').value = sale.metodoPago || 'efectivo';
+         document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
     }
 
     // Set flag for modification
