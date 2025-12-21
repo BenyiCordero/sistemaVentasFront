@@ -130,7 +130,7 @@ async function parseErrorBody(res) {
     return `Status ${res.status}`;
 }
 
-async function fetchAllUsers() {
+async function fetchAllUsers(retry = false) {
     try {
         const res = await fetch(GET_USERS_ENDPOINT, {
             method: 'GET',
@@ -138,6 +138,11 @@ async function fetchAllUsers() {
         });
 
         if (!res.ok) {
+            if (res.status === 401 && !retry) {
+                const { refreshToken } = await import("./session.js");
+                await refreshToken();
+                return fetchAllUsers(true);
+            }
             const txt = await parseErrorBody(res);
             throw new Error(txt);
         }

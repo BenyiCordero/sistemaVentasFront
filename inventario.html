@@ -38,33 +38,24 @@
                     <div class="row g-3">
                         <div class="col-12 col-md-4">
                             <label class="form-label">Buscar producto</label>
-                            <input id="inputSearch" class="form-control" type="text" placeholder="Nombre o código">
+                            <input autocomplete="off" id="inputSearch" class="form-control" type="text" placeholder="Nombre o código">
                         </div>
                         <div class="col-12 col-md-3">
-                            <label class="form-label">Disponible</label>
+                            <label class="form-label">Activo</label>
                             <select id="selectCategory" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="activo">Disponible</option>
-                                <option value="otros">No disponible</option>
+                                <option value="activo">Activo</option>
+                                <option value="otros">No activo</option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">Estado</label>
-                            <select id="selectStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="Bueno">Bueno</option>
-                                <option value="Regular">Regular</option>
-                                <option value="Malo">Malo</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <div>
-                                <button id="btnFilter" class="btn btn-outline-primary w-100">
-                                    <i class="bi bi-funnel"></i> Filtrar
-                                </button>
-                            </div>
-                        </div>
+                         <div class="col-12 col-md-3">
+                             <label class="form-label">Disponible</label>
+                             <select id="selectActivo" class="form-select">
+                                 <option value="">Todos</option>
+                                 <option value="Activo">Disponible</option>
+                                 <option value="Desactivo">No disponible</option>
+                             </select>
+                         </div>
                     </div>
                 </div>
             </div>
@@ -76,12 +67,12 @@
                             <thead>
                                 <tr>
                                     <th>ID</th>
+                                    <th>Nombre</th>
                                     <th>Cantidad</th>
                                     <th>Marca</th>
                                     <th>Modelo</th>
                                     <th>Disponible</th>
                                     <th>Precio</th>
-                                    <th>Fecha agregado</th>
                                 </tr>
                             </thead>
                             <tbody>

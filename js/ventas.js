@@ -169,24 +169,22 @@ function renderSaleRow(sale) {
     const details = sale.details && sale.details.length > 0 ? sale.details[0] : null;
     const productoNombre = details?.producto?.nombre || details?.nombreProducto || '';
     const cantidad = details?.cantidad || '';
-    const precioUnitario = details?.precio ? Number(details.precio).toFixed(2) : '';
-    const subtotal = details?.subtotal ? Number(details.subtotal).toFixed(2) : '';
     const totalVenta = typeof (sale.totalVenta || sale.total) !== 'undefined' ? Number(sale.totalVenta || sale.total).toFixed(2) : '';
-    const descuento = typeof sale.descuento !== 'undefined' ? Number(sale.descuento).toFixed(2) : '';
+    const metodoPago = sale.metodoPago || '';
+    const estado = sale.estado || '';
 
     tr.innerHTML = `
     <td><i class="bi bi-receipt text-muted"></i> ${sale.idVenta ?? sale.id ?? ''}</td>
-    <td><i class="bi bi-calendar-event text-muted"></i> ${fecha}</td>
-    <td><i class="bi bi-person text-muted"></i> <span class="fw-semibold">${clienteNombre}</span></td>
-    <td><i class="bi bi-box-seam text-muted"></i> <span class="text-truncate" style="max-width: 150px;" title="${productoNombre}">${productoNombre || 'N/A'}</span></td>
-    <td>${cantidad ? `<span class="badge bg-primary">${cantidad}</span>` : ''}</td>
-    <td>${precioUnitario ? `<span class="badge bg-success">$ ${precioUnitario}</span>` : ''}</td>
-    <td>${subtotal ? `<span class="badge bg-info">$ ${subtotal}</span>` : ''}</td>
-    <td>${totalVenta ? `<span class="badge bg-warning">$ ${totalVenta}</span>` : ''}</td>
-    <td>${descuento ? `<span class="badge bg-danger">${descuento}%</span>` : ''}</td>
+    <td>${fecha}</td>
+    <td><span class="fw-semibold">${clienteNombre}</span></td>
+    <td>${productoNombre || 'N/A'}</td>
+    <td>${cantidad || ''}</td>
+    <td>$ ${totalVenta}</td>
+    <td>${metodoPago ? `<span class="badge bg-secondary">${metodoPago}</span>` : ''}</td>
+    <td>${estado ? `<span class="badge bg-secondary">${estado}</span>` : ''}</td>
     <td class="text-center">
         <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
-        <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
+        <button disabled class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
     </td>
     `;
     return tr;
@@ -215,10 +213,12 @@ async function fetchSalesBySucursal(sucursalId) {
             'Content-Type': 'application/json'
         }
     });
+     if (res.status === 404 || res.status === 204) {
+        return [];
+    }
+
     if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+        throw new Error(data?.message || `Error ${res.status}`);
     }
     const data = await res.json();
     return Array.isArray(data) ? data : (data?.ventas ?? data?.data ?? []);
@@ -342,6 +342,17 @@ async function updateInventoryDetail(id, payload) {
     return handleResponse(res); // <--- usar handleResponse evita body already read
 }
 
+function updateTotal() {
+        const cantidad = Number(inputCantidad.value || 0);
+        const precio = Number(inputPrecioUnitario.value || 0);
+        const descuento = Number(inputDescuento.value || 0);
+        const impuesto = Number(inputImpuesto.value || 0);
+        const subtotal = cantidad * precio;
+        const descuentoAmount = subtotal * (descuento / 100);
+        const subtotalAfterDescuento = subtotal - descuentoAmount;
+        const impuestoAmount = subtotalAfterDescuento * (impuesto / 100);
+        inputTotal.value = (subtotalAfterDescuento + impuestoAmount).toFixed(2);
+    }
 
 function initModalLogic() {
     const modalEl = document.getElementById('modalNewSale');
@@ -354,17 +365,7 @@ function initModalLogic() {
     const inputTotal = document.getElementById('inputTotal');
     const selectProducto = document.getElementById('selectProducto');
 
-    function updateTotal() {
-        const cantidad = Number(inputCantidad.value || 0);
-        const precio = Number(inputPrecioUnitario.value || 0);
-        const descuento = Number(inputDescuento.value || 0);
-        const impuesto = Number(inputImpuesto.value || 0);
-        const subtotal = cantidad * precio;
-        const descuentoAmount = subtotal * (descuento / 100);
-        const subtotalAfterDescuento = subtotal - descuentoAmount;
-        const impuestoAmount = subtotalAfterDescuento * (impuesto / 100);
-        inputTotal.value = (subtotalAfterDescuento + impuestoAmount).toFixed(2);
-    }
+    
 
     inputCantidad.addEventListener('input', updateTotal);
     inputPrecioUnitario.addEventListener('input', updateTotal);
@@ -383,6 +384,7 @@ function initModalLogic() {
         inputPrecioUnitario.value = '0.00';
         inputDescuento.value = '0';
         inputImpuesto.value = '0';
+        document.getElementById('inputMetodoPago').value = '';
         // Limpiar inputs de autocompletado
         document.getElementById('inputCliente').value = '';
         document.getElementById('idCliente').value = '';
@@ -391,7 +393,10 @@ function initModalLogic() {
 
         // Cargar listas si no inicializado
         await loadClients();
-        await loadProducts();
+        currentProducts = await loadProductsBySucursal(currentSucursalId);
+
+        autocompleteInitialized = false;
+
         if (!autocompleteInitialized) {
             initAutocomplete(
                 document.getElementById('inputCliente'),
@@ -434,11 +439,15 @@ function initModalLogic() {
     const precioUnitario = Number(document.getElementById('inputPrecioUnitario').value || 0);
     const descuento = Number(document.getElementById('inputDescuento').value || 0);
     const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
-    const totalVenta = Number(document.getElementById('inputTotal').value || 0);
-    const notas = document.getElementById('inputNotas').value.trim();
-    const subtotal = cantidad * precioUnitario;
+     const totalVenta = Number(document.getElementById('inputTotal').value || 0);
+     const notas = document.getElementById('inputNotas').value.trim();
+     const metodoPago = document.getElementById('inputMetodoPago').value;
+     if (!metodoPago) {
+         displayError('Debes seleccionar un método de pago.');
+         return;
+     }
+     const subtotal = cantidad * precioUnitario;
 
-    // Validate stock
     try {
         const inventoryDetails = await getInventoryDetails(selectedProductId);
         const totalStock = inventoryDetails.reduce((sum, detail) => sum + (detail.cantidad || 0), 0);
@@ -463,16 +472,16 @@ function initModalLogic() {
         const profile = await getUserProfile();
         const idTrabajador = profile.id;
 
-        // Payload correcto, con campos planos
-        const ventaPayload = {
-            idSucursal: currentSucursalId,
-            idCliente: selectedClient.idCliente || selectedClient.id,
-            idTrabajador,
-            totalVenta,
-            descuento,
-            impuesto,
-            notas
-        };
+         const ventaPayload = {
+             idSucursal: currentSucursalId,
+             idCliente: selectedClient.idCliente || selectedClient.id,
+             idTrabajador,
+             totalVenta,
+             descuento,
+             impuesto,
+             notas,
+             metodoPago
+         };
 
         let idVenta;
         if (isModifying) {
@@ -589,6 +598,42 @@ async function loadProducts() {
     }
 }
 
+async function loadProductsBySucursal(sucursalId) {
+    try {
+        const token = localStorage.getItem('authToken');
+
+        const invRes = await fetch(`${BASE_API_URL}/inventory/${sucursalId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!invRes.ok) return [];
+
+        const inventario = await invRes.json();
+        const inventarioId = inventario.idInventario || inventario.id;
+
+        const detRes = await fetch(`${BASE_API_URL}/inventoryDetails/inventario/${inventarioId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!detRes.ok) return [];
+
+        const details = await detRes.json();
+
+        const productMap = new Map();
+        details.forEach(d => {
+            if (!d.producto) return;
+            const id = d.producto.idProducto || d.producto.id;
+            if (!productMap.has(id)) {
+                productMap.set(id, d.producto);
+            }
+        });
+
+        return Array.from(productMap.values());
+    } catch (err) {
+        console.error('loadProductsBySucursal error', err);
+        return [];
+    }
+}
+
+
 function openViewModal(idVenta) {
     const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]');
     const sale = sales.find(s => (s.idVenta || s.id) == idVenta);
@@ -609,29 +654,35 @@ function openViewModal(idVenta) {
                 <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Información General de la Venta</h6>
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-receipt text-muted"></i> ID Venta:</strong> <span class="badge bg-secondary">${sale.idVenta || sale.id}</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-calendar-event text-muted"></i> Fecha:</strong> ${fecha}
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-person text-muted"></i> Cliente:</strong> <span class="fw-semibold">${clienteNombre}</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-cash text-muted"></i> Total:</strong> <span class="badge bg-success">$ ${Number(sale.totalVenta || sale.total).toFixed(2)}</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-percent text-muted"></i> Descuento:</strong> <span class="badge bg-danger">${Number(sale.descuento || 0).toFixed(2)}%</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-calculator text-muted"></i> Impuesto:</strong> <span class="badge bg-warning">${Number(sale.impuesto || 0).toFixed(2)}%</span>
-                    </div>
-                    <div class="col-12">
-                        <strong><i class="bi bi-sticky text-muted"></i> Notas:</strong> ${sale.notas || 'Sin notas'}
-                    </div>
-                </div>
+                 <div class="row g-3">
+                     <div class="col-12 col-md-6">
+                         <strong>ID Venta:</strong> <span class="badge bg-secondary">${sale.idVenta || sale.id}</span>
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Fecha:</strong> ${fecha}
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Cliente:</strong> <span class="fw-semibold">${clienteNombre}</span>
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Total:</strong> $ ${Number(sale.totalVenta || sale.total).toFixed(2)}
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Descuento:</strong> ${Number(sale.descuento || 0).toFixed(2)}%
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Impuesto:</strong> ${Number(sale.impuesto || 0).toFixed(2)}%
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Estado:</strong> <span class="badge bg-secondary">${sale.estado || 'No especificado'}</span>
+                     </div>
+                     <div class="col-12">
+                         <strong>Notas:</strong> ${sale.notas || 'Sin notas'}
+                     </div>
+                 </div>
             </div>
         </div>
         <div class="card">
@@ -646,10 +697,10 @@ function openViewModal(idVenta) {
         sale.details.forEach(detail => {
             html += `
                 <tr>
-                    <td><i class="bi bi-box text-muted"></i> ${detail.producto?.nombre || detail.nombreProducto || 'N/A'}</td>
-                    <td><span class="badge bg-primary">${detail.cantidad}</span></td>
-                    <td><span class="badge bg-success">$ ${Number(detail.precio).toFixed(2)}</span></td>
-                    <td><span class="badge bg-info">$ ${Number(detail.subtotal).toFixed(2)}</span></td>
+                    <td>${detail.producto?.nombre || detail.nombreProducto || 'N/A'}</td>
+                    <td>${detail.cantidad}</td>
+                    <td>$ ${Number(detail.precio).toFixed(2)}</td>
+                    <td>$ ${Number(detail.subtotal).toFixed(2)}</td>
                 </tr>
             `;
         });
@@ -698,10 +749,11 @@ async function openModifyModal(idVenta) {
         idProducto.value = detail.idProducto;
         inputCantidad.value = detail.cantidad;
         inputPrecioUnitario.value = Number(detail.precio).toFixed(2);
-        inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
-        inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
-        inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
-        inputNotas.value = sale.notas || '';
+         inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
+         inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
+         inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
+         inputNotas.value = sale.notas || '';
+         document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
     }
 
     // Set flag for modification
