@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = 'http://localhost:8081/api';
+const BASE_API_URL = '/api';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
@@ -599,7 +599,6 @@ async function loadProductsBySucursal(sucursalId) {
     try {
         const token = localStorage.getItem('authToken');
 
-        // 1️⃣ Obtener inventario de la sucursal
         const invRes = await fetch(`${BASE_API_URL}/inventory/${sucursalId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -608,7 +607,6 @@ async function loadProductsBySucursal(sucursalId) {
         const inventario = await invRes.json();
         const inventarioId = inventario.idInventario || inventario.id;
 
-        // 2️⃣ Obtener inventoryDetails
         const detRes = await fetch(`${BASE_API_URL}/inventoryDetails/inventario/${inventarioId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -616,7 +614,6 @@ async function loadProductsBySucursal(sucursalId) {
 
         const details = await detRes.json();
 
-        // 3️⃣ Mapear productos únicos
         const productMap = new Map();
         details.forEach(d => {
             if (!d.producto) return;
