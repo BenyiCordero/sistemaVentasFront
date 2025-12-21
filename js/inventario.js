@@ -12,15 +12,6 @@ let lastSearchToken = 0;
 function q(selector) { return document.querySelector(selector); }
 function qAll(selector) { return Array.from(document.querySelectorAll(selector)); }
 
-function formatDateLocal(dateStr) {
-    if (!dateStr) return '';
-    try {
-        const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString();
-    } catch (e) { return dateStr; }
-}
-
 async function apiGet(path) {
     const token = localStorage.getItem('authToken');
     const res = await fetch(`${BASE_API_URL}${path}`, {
@@ -179,57 +170,76 @@ async function loadProductsAndDetails() {
     try {
         showLoadingTable(true);
 
+        const profile = await getUserProfile().catch(() => null);
+        const sucursalId = extractSucursalId(profile);
+        if (!sucursalId) {
+            products = [];
+            inventoryDetailsMap.clear();
+            renderProductsTable([]);
+            return;
+        }
+
+        const inventario = await ensureInventoryForSucursal(sucursalId);
+        const inventarioId = extractInventarioId(inventario);
+
+        if (!inventarioId) {
+            products = [];
+            inventoryDetailsMap.clear();
+            renderProductsTable([]);
+            return;
+        }
+
+        let details = [];
         try {
-            const fetched = await apiGet('/product');
-            if (Array.isArray(fetched)) products = fetched;
-            else if (fetched && Array.isArray(fetched.content)) products = fetched.content;
-            else if (fetched && typeof fetched === 'object') products = [fetched];
-            else products = [];
+            const res = await apiGet(`/inventoryDetails/inventario/${inventarioId}`);
+            details = Array.isArray(res) ? res : (res ? [res] : []);
         } catch (err) {
-            console.warn('loadProductsAndDetails: GET /product failed:', err.status, err.body);
-            if (String(err.body || '').toLowerCase().includes('no existen productos') ||
-                String(err.body || '').toLowerCase().includes('no hay productos')) {
-                products = [];
-            } else {
-                throw err;
-            }
+            console.warn('No inventoryDetails:', err.status, err.body);
+            details = [];
         }
 
         inventoryDetailsMap.clear();
-        const promises = products.map(async (p) => {
-            try {
-                const details = await apiGet(`/inventoryDetails/producto/${p.idProducto}`);
-                inventoryDetailsMap.set(p.idProducto, Array.isArray(details) ? details : (details ? [details] : []));
-            } catch (err) {
-                console.warn(`loadProductsAndDetails: no details for product ${p.idProducto}:`, err.status, err.body);
-                inventoryDetailsMap.set(p.idProducto, []);
+        const productMap = new Map();
+
+        details.forEach(d => {
+            if (!d.producto) return;
+
+            const pid = d.producto.idProducto ?? d.producto.id;
+            if (!pid) return;
+
+            if (!productMap.has(pid)) {
+                productMap.set(pid, d.producto);
             }
+
+            if (!inventoryDetailsMap.has(pid)) {
+                inventoryDetailsMap.set(pid, []);
+            }
+            inventoryDetailsMap.get(pid).push(d);
         });
-        await Promise.all(promises);
+
+        products = Array.from(productMap.values());
+
         renderProductsTable(products);
-        showLoadingTable(false);
     } catch (err) {
         console.error('loadProductsAndDetails error:', err);
+        notifyError('No se pudieron cargar los productos del inventario');
+    } finally {
         showLoadingTable(false);
-        notifyError('No se pudo cargar productos: ' + (err.body || err.message));
     }
 }
 
+
 function computeAggregateForProduct(product) {
     const details = inventoryDetailsMap.get(product.idProducto) || [];
+    let nombre = product.nombre;
     let totalCantidad = 0;
     let disponible = false;
-    let latestDate = null;
     details.forEach(d => {
         const c = Number(d.cantidad) || 0;
         totalCantidad += c;
         if (d.disponible === true || d.disponible === 'true') disponible = true;
-        const date = d.fechaAgregado ? new Date(d.fechaAgregado) : null;
-        if (date && !Number.isNaN(date.getTime())) {
-            if (!latestDate || date > latestDate) latestDate = date;
-        }
     });
-    return { cantidad: totalCantidad, disponible, fechaAgregado: latestDate ? latestDate.toISOString().slice(0,10) : null };
+    return { cantidad: totalCantidad, disponible, nombre};
 }
 
 function renderProductsTable(list) {
@@ -249,12 +259,12 @@ function renderProductsTable(list) {
         tr.dataset.productId = product.idProducto;
         tr.innerHTML = `
             <td>${product.idProducto ?? ''}</td>
+            <td>${agg.nombre}</td>
             <td>${agg.cantidad}</td>
             <td>${product.marca ?? ''}</td>
             <td>${product.modelo ?? ''}</td>
             <td>${agg.disponible ? 'Sí' : 'No'}</td>
             <td>${product.precio != null ? Number(product.precio).toFixed(2) : ''}</td>
-            <td>${agg.fechaAgregado ? formatDateLocal(agg.fechaAgregado) : ''}</td>
         `;
         tr.addEventListener('click', () => openProductDetailsModal(product.idProducto));
         tableBody.appendChild(tr);
@@ -264,7 +274,7 @@ function renderProductsTable(list) {
 function applyFiltersAndRender() {
     const qText = q('#inputSearch')?.value.trim().toLowerCase() || '';
     const category = q('#selectCategory')?.value || '';
-    const status = q('#selectStatus')?.value || '';
+    const status = q('#selectActivo')?.value || '';
     let filtered = products.slice();
 
     if (qText) {
@@ -278,12 +288,8 @@ function applyFiltersAndRender() {
     if (category === 'activo') filtered = filtered.filter(p => p.activo === true || p.activo === 'true');
     else if (category === 'otros') filtered = filtered.filter(p => !(p.activo === true || p.activo === 'true'));
 
-    if (status) {
-        filtered = filtered.filter(p => {
-            const details = inventoryDetailsMap.get(p.idProducto) || [];
-            return details.some(d => (d.estado || '').toLowerCase() === status.toLowerCase());
-        });
-    }
+    if (status === 'Activo') filtered = filtered.filter(p => computeAggregateForProduct(p).disponible);
+    else if (status === 'Desactivo') filtered = filtered.filter(p => !computeAggregateForProduct(p).disponible);
 
     renderProductsTable(filtered);
 }
@@ -332,6 +338,7 @@ async function openProductDetailsModal(productId) {
                         <div class="col-12 col-md-6"><strong>Precio:</strong> ${product.precio != null ? Number(product.precio).toFixed(2) : ''}</div>
                         <div class="col-12 col-md-6"><strong>Costo:</strong> ${product.costo != null ? Number(product.costo).toFixed(2) : ''}</div>
                         <div class="col-12"><strong>Descripción:</strong> ${product.descripcion ?? ''}</div>
+                        <div class="col-12"><strong>Estado:</strong> ${details[0]?.estado ?? ''}</div>
                         <div class="col-12"><strong>Activo:</strong> ${product.activo ? 'Sí' : 'No'}</div>
                     </div>
                     <hr/>
@@ -345,7 +352,6 @@ async function openProductDetailsModal(productId) {
                                     <th>Cantidad</th>
                                     <th>Estado</th>
                                     <th>Disponible</th>
-                                    <th>Fecha agregado</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -357,7 +363,6 @@ async function openProductDetailsModal(productId) {
                                             <td>${d.cantidad ?? ''}</td>
                                             <td>${d.estado ?? ''}</td>
                                             <td>${d.disponible ? 'Sí' : 'No'}</td>
-                                            <td>${d.fechaAgregado ? formatDateLocal(d.fechaAgregado) : ''}</td>
                                         </tr>
                                     `).join('')}
                             </tbody>
@@ -558,9 +563,9 @@ function initProductModal() {
 }
 
 function initFilters() {
-    q('#btnFilter')?.addEventListener('click', applyFiltersAndRender);
     q('#btnRefreshProducts')?.addEventListener('click', () => loadProductsAndDetails());
-    q('#inputSearch')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFiltersAndRender(); });
+    q('#selectCategory')?.addEventListener('change', applyFiltersAndRender);
+    q('#selectActivo')?.addEventListener('change', applyFiltersAndRender);
     const doSearchDebounced = debounce((val, tokenId) => performLiveSearch(val, tokenId), 300);
     q('#inputSearch')?.addEventListener('input', (e) => {
         const v = e.target.value.trim();

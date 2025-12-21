@@ -215,10 +215,12 @@ async function fetchSalesBySucursal(sucursalId) {
             'Content-Type': 'application/json'
         }
     });
+     if (res.status === 404 || res.status === 204) {
+        return [];
+    }
+
     if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+        throw new Error(data?.message || `Error ${res.status}`);
     }
     const data = await res.json();
     return Array.isArray(data) ? data : (data?.ventas ?? data?.data ?? []);
@@ -392,7 +394,10 @@ function initModalLogic() {
 
         // Cargar listas si no inicializado
         await loadClients();
-        await loadProducts();
+        currentProducts = await loadProductsBySucursal(currentSucursalId);
+
+        autocompleteInitialized = false;
+
         if (!autocompleteInitialized) {
             initAutocomplete(
                 document.getElementById('inputCliente'),
@@ -589,6 +594,42 @@ async function loadProducts() {
         currentProducts = [];
     }
 }
+
+async function loadProductsBySucursal(sucursalId) {
+    try {
+        const token = localStorage.getItem('authToken');
+
+        const invRes = await fetch(`${BASE_API_URL}/inventory/${sucursalId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!invRes.ok) return [];
+
+        const inventario = await invRes.json();
+        const inventarioId = inventario.idInventario || inventario.id;
+
+        const detRes = await fetch(`${BASE_API_URL}/inventoryDetails/inventario/${inventarioId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!detRes.ok) return [];
+
+        const details = await detRes.json();
+
+        const productMap = new Map();
+        details.forEach(d => {
+            if (!d.producto) return;
+            const id = d.producto.idProducto || d.producto.id;
+            if (!productMap.has(id)) {
+                productMap.set(id, d.producto);
+            }
+        });
+
+        return Array.from(productMap.values());
+    } catch (err) {
+        console.error('loadProductsBySucursal error', err);
+        return [];
+    }
+}
+
 
 function openViewModal(idVenta) {
     const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]');
