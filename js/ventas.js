@@ -188,7 +188,7 @@ function renderSaleRow(sale) {
      <td>${metodoPago ? `<span class="badge bg-secondary">${metodoPago}</span>` : ''}</td>
      <td class="text-center">
          <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
-         <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
+         <button disabled class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
      </td>
      `;
     return tr;
@@ -452,7 +452,6 @@ function initModalLogic() {
      }
      const subtotal = cantidad * precioUnitario;
 
-    // Validate stock
     try {
         const inventoryDetails = await getInventoryDetails(selectedProductId);
         const totalStock = inventoryDetails.reduce((sum, detail) => sum + (detail.cantidad || 0), 0);
@@ -477,7 +476,6 @@ function initModalLogic() {
         const profile = await getUserProfile();
         const idTrabajador = profile.id;
 
-         // Payload correcto, con campos planos
          const ventaPayload = {
              idSucursal: currentSucursalId,
              idCliente: selectedClient.idCliente || selectedClient.id,
