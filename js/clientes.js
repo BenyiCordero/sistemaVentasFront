@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from "./utils.js";
 import { getUserProfile } from "./session.js";
 
-const BASE_API_URL = "http://localhost:8081";
+const BASE_API_URL = "http://localhost:8081/api";
 
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 const CREATE_CLIENT_ENDPOINT = `${BASE_API_URL}/client`;

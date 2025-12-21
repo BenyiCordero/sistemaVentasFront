@@ -2,7 +2,7 @@
 import { getUserProfile } from './session.js';
 import { notifySuccess, notifyError } from './utils.js';
 
-const BASE_API_URL = 'http://localhost:8081';
+const BASE_API_URL = 'http://localhost:8081/api';
 const CREATE_INVENTORY_ENDPOINT = `${BASE_API_URL}/inventory`;
 const GET_SUCURSAL_ENDPOINT = `${BASE_API_URL}/sucursal/getByUsuario`;
 

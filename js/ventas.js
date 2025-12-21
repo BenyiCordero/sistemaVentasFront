@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = 'http://localhost:8081';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
@@ -215,10 +215,12 @@ async function fetchSalesBySucursal(sucursalId) {
             'Content-Type': 'application/json'
         }
     });
+     if (res.status === 404 || res.status === 204) {
+        return [];
+    }
+
     if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
+        throw new Error(data?.message || `Error ${res.status}`);
     }
     const data = await res.json();
     return Array.isArray(data) ? data : (data?.ventas ?? data?.data ?? []);
