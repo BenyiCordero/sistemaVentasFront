@@ -1,5 +1,5 @@
 // js/session.js
-const BASE_API_URL = 'http://127.0.0.1:8081';
+const BASE_API_URL = '/api';
 const GET_NAME_API_URL = `${BASE_API_URL}/worker/getByEmail`;
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -66,6 +66,16 @@ async function fetchUserProfileFromApiInternal(retry = false, attempt = 0) {
         throw new Error('Network error after retries');
     }
 
+    const sucursalRes = await fetch(`${BASE_API_URL}/sucursal/getByUsuario`,{
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({ email })
+    });
+
     if (!res.ok) {
         if (res.status === 401 && !retry) {
             // Try refresh token
@@ -89,7 +99,21 @@ async function fetchUserProfileFromApiInternal(retry = false, attempt = 0) {
         throw new Error(txt);
     }
 
+    if (!sucursalRes.ok) {
+        let txt = `Status ${sucursalRes.status}`;
+        try {
+            const obj = await sucursalRes.json();
+            txt = obj.message || JSON.stringify(obj);
+        } catch (e) {
+            const t = await res.text();
+            if (t) txt = t;
+        }
+        throw new Error(txt);
+    }
+
     const data = await res.json();
+    const dataSuc = await sucursalRes.json();
+
     if (!data || !data.persona) throw new Error('Respuesta inválida de perfil');
     const persona = data.persona;
     const nombre = [
@@ -109,9 +133,7 @@ async function fetchUserProfileFromApiInternal(retry = false, attempt = 0) {
         nombreSimple: persona.nombre || '',
         primeros: persona.nombre ? persona.nombre.charAt(0).toUpperCase() : (nombre ? nombre.charAt(0).toUpperCase() : 'U'),
         telefono: persona.numeroTelefono,
-        idSucursal: data.sucursal?.idSucursal,
-        sucursalNombre: data.sucursal?.nombre,
-        sucursalKey: data.sucursal?.sucursalKey,
+        idSucursal: dataSuc.idSucursal,
         raw: data
     };
 

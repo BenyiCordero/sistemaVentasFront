@@ -2,7 +2,7 @@
 import { getUserProfile } from './session.js';
 import { notifySuccess, notifyError } from './utils.js';
 
-const BASE_API_URL = 'http://127.0.0.1:8081';
+const BASE_API_URL = '/api';
 const CREATE_INVENTORY_ENDPOINT = `${BASE_API_URL}/inventory`;
 const GET_SUCURSAL_ENDPOINT = `${BASE_API_URL}/sucursal/getByUsuario`;
 
@@ -58,13 +58,15 @@ async function fetchDashboardMetrics() {
     const token = localStorage.getItem('authToken');
     const profile = await getUserProfile();
 
+    const sucursalId = profile.idSucursal;
+
     let ingresos = 0;
     let gastos = 0;
     let compras = 0;
-    
-    if (!profile?.idSucursal) {
-        console.warn('No hay sucursal asignada al usuario');
-        return { ingresos: 0, gastos: 0, compras : 0 };
+
+        if(!sucursalId){
+        console.warn('No hay sucursal asignada');
+        return { ingresos: 0, gastos: 0, compras: 0 };
     }
 
     try {
@@ -90,6 +92,18 @@ async function fetchDashboardMetrics() {
 
         if (comprasResponse.ok) {
             compras = await comprasResponse.json();
+        }
+
+        const gastosResponse = await fetch(`${BASE_API_URL}/gasto/total/mes/1`,{
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if(gastosResponse.ok){
+            gastos = await gastosResponse.json();
         }
 
         return {
