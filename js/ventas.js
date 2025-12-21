@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = 'http://localhost:8081/api';
+const BASE_API_URL = '/api';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
@@ -169,28 +169,24 @@ function renderSaleRow(sale) {
     const details = sale.details && sale.details.length > 0 ? sale.details[0] : null;
     const productoNombre = details?.producto?.nombre || details?.nombreProducto || '';
     const cantidad = details?.cantidad || '';
-    const precioUnitario = details?.precio ? Number(details.precio).toFixed(2) : '';
-    const subtotal = details?.subtotal ? Number(details.subtotal).toFixed(2) : '';
     const totalVenta = typeof (sale.totalVenta || sale.total) !== 'undefined' ? Number(sale.totalVenta || sale.total).toFixed(2) : '';
-     const descuento = typeof sale.descuento !== 'undefined' ? Number(sale.descuento).toFixed(2) : '';
-     const metodoPago = sale.metodoPago || '';
+    const metodoPago = sale.metodoPago || '';
+    const estado = sale.estado || '';
 
-     tr.innerHTML = `
-     <td><i class="bi bi-receipt text-muted"></i> ${sale.idVenta ?? sale.id ?? ''}</td>
-     <td><i class="bi bi-calendar-event text-muted"></i> ${fecha}</td>
-     <td><i class="bi bi-person text-muted"></i> <span class="fw-semibold">${clienteNombre}</span></td>
-     <td><i class="bi bi-box-seam text-muted"></i> <span class="text-truncate" style="max-width: 150px;" title="${productoNombre}">${productoNombre || 'N/A'}</span></td>
-     <td>${cantidad ? `<span class="badge bg-primary">${cantidad}</span>` : ''}</td>
-     <td>${precioUnitario ? `<span class="badge bg-success">$ ${precioUnitario}</span>` : ''}</td>
-     <td>${subtotal ? `<span class="badge bg-info">$ ${subtotal}</span>` : ''}</td>
-     <td>${totalVenta ? `<span class="badge bg-warning">$ ${totalVenta}</span>` : ''}</td>
-     <td>${descuento ? `<span class="badge bg-danger">${descuento}%</span>` : ''}</td>
-     <td>${metodoPago ? `<span class="badge bg-secondary">${metodoPago}</span>` : ''}</td>
-     <td class="text-center">
-         <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
-         <button disabled class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
-     </td>
-     `;
+    tr.innerHTML = `
+    <td><i class="bi bi-receipt text-muted"></i> ${sale.idVenta ?? sale.id ?? ''}</td>
+    <td>${fecha}</td>
+    <td><span class="fw-semibold">${clienteNombre}</span></td>
+    <td>${productoNombre || 'N/A'}</td>
+    <td>${cantidad || ''}</td>
+    <td>$ ${totalVenta}</td>
+    <td>${metodoPago ? `<span class="badge bg-secondary">${metodoPago}</span>` : ''}</td>
+    <td>${estado ? `<span class="badge bg-secondary">${estado}</span>` : ''}</td>
+    <td class="text-center">
+        <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
+        <button disabled class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
+    </td>
+    `;
     return tr;
 }
 
@@ -658,32 +654,35 @@ function openViewModal(idVenta) {
                 <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> Información General de la Venta</h6>
             </div>
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-receipt text-muted"></i> ID Venta:</strong> <span class="badge bg-secondary">${sale.idVenta || sale.id}</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-calendar-event text-muted"></i> Fecha:</strong> ${fecha}
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-person text-muted"></i> Cliente:</strong> <span class="fw-semibold">${clienteNombre}</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-cash text-muted"></i> Total:</strong> <span class="badge bg-success">$ ${Number(sale.totalVenta || sale.total).toFixed(2)}</span>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-percent text-muted"></i> Descuento:</strong> <span class="badge bg-danger">${Number(sale.descuento || 0).toFixed(2)}%</span>
-                    </div>
+                 <div class="row g-3">
                      <div class="col-12 col-md-6">
-                         <strong><i class="bi bi-calculator text-muted"></i> Impuesto:</strong> <span class="badge bg-warning">${Number(sale.impuesto || 0).toFixed(2)}%</span>
+                         <strong>ID Venta:</strong> <span class="badge bg-secondary">${sale.idVenta || sale.id}</span>
                      </div>
                      <div class="col-12 col-md-6">
-                         <strong><i class="bi bi-credit-card text-muted"></i> Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
+                         <strong>Fecha:</strong> ${fecha}
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Cliente:</strong> <span class="fw-semibold">${clienteNombre}</span>
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Total:</strong> $ ${Number(sale.totalVenta || sale.total).toFixed(2)}
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Descuento:</strong> ${Number(sale.descuento || 0).toFixed(2)}%
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Impuesto:</strong> ${Number(sale.impuesto || 0).toFixed(2)}%
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong>Estado:</strong> <span class="badge bg-secondary">${sale.estado || 'No especificado'}</span>
                      </div>
                      <div class="col-12">
-                         <strong><i class="bi bi-sticky text-muted"></i> Notas:</strong> ${sale.notas || 'Sin notas'}
+                         <strong>Notas:</strong> ${sale.notas || 'Sin notas'}
                      </div>
-                </div>
+                 </div>
             </div>
         </div>
         <div class="card">
@@ -698,10 +697,10 @@ function openViewModal(idVenta) {
         sale.details.forEach(detail => {
             html += `
                 <tr>
-                    <td><i class="bi bi-box text-muted"></i> ${detail.producto?.nombre || detail.nombreProducto || 'N/A'}</td>
-                    <td><span class="badge bg-primary">${detail.cantidad}</span></td>
-                    <td><span class="badge bg-success">$ ${Number(detail.precio).toFixed(2)}</span></td>
-                    <td><span class="badge bg-info">$ ${Number(detail.subtotal).toFixed(2)}</span></td>
+                    <td>${detail.producto?.nombre || detail.nombreProducto || 'N/A'}</td>
+                    <td>${detail.cantidad}</td>
+                    <td>$ ${Number(detail.precio).toFixed(2)}</td>
+                    <td>$ ${Number(detail.subtotal).toFixed(2)}</td>
                 </tr>
             `;
         });
