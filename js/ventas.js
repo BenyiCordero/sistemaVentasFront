@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
@@ -386,6 +386,7 @@ function initModalLogic() {
         inputPrecioUnitario.value = '0.00';
         inputDescuento.value = '0';
         inputImpuesto.value = '0';
+        document.getElementById('inputMetodoPago').value = 'efectivo';
         // Limpiar inputs de autocompletado
         document.getElementById('inputCliente').value = '';
         document.getElementById('idCliente').value = '';
