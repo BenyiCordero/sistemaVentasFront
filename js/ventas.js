@@ -172,23 +172,25 @@ function renderSaleRow(sale) {
     const precioUnitario = details?.precio ? Number(details.precio).toFixed(2) : '';
     const subtotal = details?.subtotal ? Number(details.subtotal).toFixed(2) : '';
     const totalVenta = typeof (sale.totalVenta || sale.total) !== 'undefined' ? Number(sale.totalVenta || sale.total).toFixed(2) : '';
-    const descuento = typeof sale.descuento !== 'undefined' ? Number(sale.descuento).toFixed(2) : '';
+     const descuento = typeof sale.descuento !== 'undefined' ? Number(sale.descuento).toFixed(2) : '';
+     const metodoPago = sale.metodoPago || '';
 
-    tr.innerHTML = `
-    <td><i class="bi bi-receipt text-muted"></i> ${sale.idVenta ?? sale.id ?? ''}</td>
-    <td><i class="bi bi-calendar-event text-muted"></i> ${fecha}</td>
-    <td><i class="bi bi-person text-muted"></i> <span class="fw-semibold">${clienteNombre}</span></td>
-    <td><i class="bi bi-box-seam text-muted"></i> <span class="text-truncate" style="max-width: 150px;" title="${productoNombre}">${productoNombre || 'N/A'}</span></td>
-    <td>${cantidad ? `<span class="badge bg-primary">${cantidad}</span>` : ''}</td>
-    <td>${precioUnitario ? `<span class="badge bg-success">$ ${precioUnitario}</span>` : ''}</td>
-    <td>${subtotal ? `<span class="badge bg-info">$ ${subtotal}</span>` : ''}</td>
-    <td>${totalVenta ? `<span class="badge bg-warning">$ ${totalVenta}</span>` : ''}</td>
-    <td>${descuento ? `<span class="badge bg-danger">${descuento}%</span>` : ''}</td>
-    <td class="text-center">
-        <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
-        <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
-    </td>
-    `;
+     tr.innerHTML = `
+     <td><i class="bi bi-receipt text-muted"></i> ${sale.idVenta ?? sale.id ?? ''}</td>
+     <td><i class="bi bi-calendar-event text-muted"></i> ${fecha}</td>
+     <td><i class="bi bi-person text-muted"></i> <span class="fw-semibold">${clienteNombre}</span></td>
+     <td><i class="bi bi-box-seam text-muted"></i> <span class="text-truncate" style="max-width: 150px;" title="${productoNombre}">${productoNombre || 'N/A'}</span></td>
+     <td>${cantidad ? `<span class="badge bg-primary">${cantidad}</span>` : ''}</td>
+     <td>${precioUnitario ? `<span class="badge bg-success">$ ${precioUnitario}</span>` : ''}</td>
+     <td>${subtotal ? `<span class="badge bg-info">$ ${subtotal}</span>` : ''}</td>
+     <td>${totalVenta ? `<span class="badge bg-warning">$ ${totalVenta}</span>` : ''}</td>
+     <td>${descuento ? `<span class="badge bg-danger">${descuento}%</span>` : ''}</td>
+     <td>${metodoPago ? `<span class="badge bg-secondary">${metodoPago}</span>` : ''}</td>
+     <td class="text-center">
+         <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
+         <button class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
+     </td>
+     `;
     return tr;
 }
 
@@ -441,9 +443,10 @@ function initModalLogic() {
     const precioUnitario = Number(document.getElementById('inputPrecioUnitario').value || 0);
     const descuento = Number(document.getElementById('inputDescuento').value || 0);
     const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
-    const totalVenta = Number(document.getElementById('inputTotal').value || 0);
-    const notas = document.getElementById('inputNotas').value.trim();
-    const subtotal = cantidad * precioUnitario;
+     const totalVenta = Number(document.getElementById('inputTotal').value || 0);
+     const notas = document.getElementById('inputNotas').value.trim();
+     const metodoPago = document.getElementById('inputMetodoPago').value;
+     const subtotal = cantidad * precioUnitario;
 
     // Validate stock
     try {
@@ -470,16 +473,17 @@ function initModalLogic() {
         const profile = await getUserProfile();
         const idTrabajador = profile.id;
 
-        // Payload correcto, con campos planos
-        const ventaPayload = {
-            idSucursal: currentSucursalId,
-            idCliente: selectedClient.idCliente || selectedClient.id,
-            idTrabajador,
-            totalVenta,
-            descuento,
-            impuesto,
-            notas
-        };
+         // Payload correcto, con campos planos
+         const ventaPayload = {
+             idSucursal: currentSucursalId,
+             idCliente: selectedClient.idCliente || selectedClient.id,
+             idTrabajador,
+             totalVenta,
+             descuento,
+             impuesto,
+             notas,
+             metodoPago
+         };
 
         let idVenta;
         if (isModifying) {
@@ -668,12 +672,15 @@ function openViewModal(idVenta) {
                     <div class="col-12 col-md-6">
                         <strong><i class="bi bi-percent text-muted"></i> Descuento:</strong> <span class="badge bg-danger">${Number(sale.descuento || 0).toFixed(2)}%</span>
                     </div>
-                    <div class="col-12 col-md-6">
-                        <strong><i class="bi bi-calculator text-muted"></i> Impuesto:</strong> <span class="badge bg-warning">${Number(sale.impuesto || 0).toFixed(2)}%</span>
-                    </div>
-                    <div class="col-12">
-                        <strong><i class="bi bi-sticky text-muted"></i> Notas:</strong> ${sale.notas || 'Sin notas'}
-                    </div>
+                     <div class="col-12 col-md-6">
+                         <strong><i class="bi bi-calculator text-muted"></i> Impuesto:</strong> <span class="badge bg-warning">${Number(sale.impuesto || 0).toFixed(2)}%</span>
+                     </div>
+                     <div class="col-12 col-md-6">
+                         <strong><i class="bi bi-credit-card text-muted"></i> Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
+                     </div>
+                     <div class="col-12">
+                         <strong><i class="bi bi-sticky text-muted"></i> Notas:</strong> ${sale.notas || 'Sin notas'}
+                     </div>
                 </div>
             </div>
         </div>
@@ -741,10 +748,11 @@ async function openModifyModal(idVenta) {
         idProducto.value = detail.idProducto;
         inputCantidad.value = detail.cantidad;
         inputPrecioUnitario.value = Number(detail.precio).toFixed(2);
-        inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
-        inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
-        inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
-        inputNotas.value = sale.notas || '';
+         inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
+         inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
+         inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
+         inputNotas.value = sale.notas || '';
+         document.getElementById('inputMetodoPago').value = sale.metodoPago || 'efectivo';
     }
 
     // Set flag for modification
