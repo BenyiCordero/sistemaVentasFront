@@ -264,7 +264,7 @@ function renderProductsTable(list) {
 function applyFiltersAndRender() {
     const qText = q('#inputSearch')?.value.trim().toLowerCase() || '';
     const category = q('#selectCategory')?.value || '';
-    const status = q('#selectStatus')?.value || '';
+    const status = q('#selectActivo')?.value || '';
     let filtered = products.slice();
 
     if (qText) {
@@ -278,12 +278,8 @@ function applyFiltersAndRender() {
     if (category === 'activo') filtered = filtered.filter(p => p.activo === true || p.activo === 'true');
     else if (category === 'otros') filtered = filtered.filter(p => !(p.activo === true || p.activo === 'true'));
 
-    if (status) {
-        filtered = filtered.filter(p => {
-            const details = inventoryDetailsMap.get(p.idProducto) || [];
-            return details.some(d => (d.estado || '').toLowerCase() === status.toLowerCase());
-        });
-    }
+    if (status === 'Activo') filtered = filtered.filter(p => computeAggregateForProduct(p).disponible);
+    else if (status === 'Desactivo') filtered = filtered.filter(p => !computeAggregateForProduct(p).disponible);
 
     renderProductsTable(filtered);
 }
@@ -558,9 +554,9 @@ function initProductModal() {
 }
 
 function initFilters() {
-    q('#btnFilter')?.addEventListener('click', applyFiltersAndRender);
     q('#btnRefreshProducts')?.addEventListener('click', () => loadProductsAndDetails());
-    q('#inputSearch')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFiltersAndRender(); });
+    q('#selectCategory')?.addEventListener('change', applyFiltersAndRender);
+    q('#selectActivo')?.addEventListener('change', applyFiltersAndRender);
     const doSearchDebounced = debounce((val, tokenId) => performLiveSearch(val, tokenId), 300);
     q('#inputSearch')?.addEventListener('input', (e) => {
         const v = e.target.value.trim();
