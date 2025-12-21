@@ -24,9 +24,6 @@ function renderClientRow(client) {
   ]
     .filter(Boolean)
     .join(" ");
-  const fechaRegistro = new Date(
-    client.createdAt || Date.now()
-  ).toLocaleDateString();
 
   tr.innerHTML = `
     <td>${client.idCliente ?? client.id ?? ""}</td>
@@ -34,7 +31,6 @@ function renderClientRow(client) {
     <td>${client.persona.numeroTelefono || "N/A"}</td>
     <td><span class="badge bg-${client.creditoActivo ? "success" : "secondary"
     }">${client.creditoActivo ? "Activo" : "Inactivo"}</span></td>
-    <td>${fechaRegistro}</td>
     <td>
         <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${client.idCliente || client.id
     }">
