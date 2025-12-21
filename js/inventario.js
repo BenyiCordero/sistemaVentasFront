@@ -170,7 +170,6 @@ async function loadProductsAndDetails() {
     try {
         showLoadingTable(true);
 
-        // 1️⃣ Perfil → sucursal
         const profile = await getUserProfile().catch(() => null);
         const sucursalId = extractSucursalId(profile);
         if (!sucursalId) {
@@ -180,7 +179,6 @@ async function loadProductsAndDetails() {
             return;
         }
 
-        // 2️⃣ Inventario de la sucursal
         const inventario = await ensureInventoryForSucursal(sucursalId);
         const inventarioId = extractInventarioId(inventario);
 
@@ -191,7 +189,6 @@ async function loadProductsAndDetails() {
             return;
         }
 
-        // 3️⃣ InventoryDetails DEL inventario actual
         let details = [];
         try {
             const res = await apiGet(`/inventoryDetails/inventario/${inventarioId}`);
@@ -201,7 +198,6 @@ async function loadProductsAndDetails() {
             details = [];
         }
 
-        // 4️⃣ Construir mapa productoId → details
         inventoryDetailsMap.clear();
         const productMap = new Map();
 
@@ -211,19 +207,16 @@ async function loadProductsAndDetails() {
             const pid = d.producto.idProducto ?? d.producto.id;
             if (!pid) return;
 
-            // guardar producto
             if (!productMap.has(pid)) {
                 productMap.set(pid, d.producto);
             }
 
-            // guardar detalles
             if (!inventoryDetailsMap.has(pid)) {
                 inventoryDetailsMap.set(pid, []);
             }
             inventoryDetailsMap.get(pid).push(d);
         });
 
-        // 5️⃣ Lista final de productos
         products = Array.from(productMap.values());
 
         renderProductsTable(products);

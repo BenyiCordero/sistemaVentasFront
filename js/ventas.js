@@ -394,7 +394,10 @@ function initModalLogic() {
 
         // Cargar listas si no inicializado
         await loadClients();
-        await loadProducts();
+        currentProducts = await loadProductsBySucursal(currentSucursalId);
+
+        autocompleteInitialized = false;
+
         if (!autocompleteInitialized) {
             initAutocomplete(
                 document.getElementById('inputCliente'),
@@ -591,6 +594,45 @@ async function loadProducts() {
         currentProducts = [];
     }
 }
+
+async function loadProductsBySucursal(sucursalId) {
+    try {
+        const token = localStorage.getItem('authToken');
+
+        // 1️⃣ Obtener inventario de la sucursal
+        const invRes = await fetch(`${BASE_API_URL}/inventory/${sucursalId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!invRes.ok) return [];
+
+        const inventario = await invRes.json();
+        const inventarioId = inventario.idInventario || inventario.id;
+
+        // 2️⃣ Obtener inventoryDetails
+        const detRes = await fetch(`${BASE_API_URL}/inventoryDetails/inventario/${inventarioId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!detRes.ok) return [];
+
+        const details = await detRes.json();
+
+        // 3️⃣ Mapear productos únicos
+        const productMap = new Map();
+        details.forEach(d => {
+            if (!d.producto) return;
+            const id = d.producto.idProducto || d.producto.id;
+            if (!productMap.has(id)) {
+                productMap.set(id, d.producto);
+            }
+        });
+
+        return Array.from(productMap.values());
+    } catch (err) {
+        console.error('loadProductsBySucursal error', err);
+        return [];
+    }
+}
+
 
 function openViewModal(idVenta) {
     const sales = JSON.parse(localStorage.getItem('cachedSales') || '[]');
