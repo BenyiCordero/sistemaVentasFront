@@ -12,15 +12,6 @@ let lastSearchToken = 0;
 function q(selector) { return document.querySelector(selector); }
 function qAll(selector) { return Array.from(document.querySelectorAll(selector)); }
 
-function formatDateLocal(dateStr) {
-    if (!dateStr) return '';
-    try {
-        const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString();
-    } catch (e) { return dateStr; }
-}
-
 async function apiGet(path) {
     const token = localStorage.getItem('authToken');
     const res = await fetch(`${BASE_API_URL}${path}`, {
@@ -217,19 +208,15 @@ async function loadProductsAndDetails() {
 
 function computeAggregateForProduct(product) {
     const details = inventoryDetailsMap.get(product.idProducto) || [];
+    let nombre = product.nombre;
     let totalCantidad = 0;
     let disponible = false;
-    let latestDate = null;
     details.forEach(d => {
         const c = Number(d.cantidad) || 0;
         totalCantidad += c;
         if (d.disponible === true || d.disponible === 'true') disponible = true;
-        const date = d.fechaAgregado ? new Date(d.fechaAgregado) : null;
-        if (date && !Number.isNaN(date.getTime())) {
-            if (!latestDate || date > latestDate) latestDate = date;
-        }
     });
-    return { cantidad: totalCantidad, disponible, fechaAgregado: latestDate ? latestDate.toISOString().slice(0,10) : null };
+    return { cantidad: totalCantidad, disponible, nombre};
 }
 
 function renderProductsTable(list) {
@@ -249,12 +236,12 @@ function renderProductsTable(list) {
         tr.dataset.productId = product.idProducto;
         tr.innerHTML = `
             <td>${product.idProducto ?? ''}</td>
+            <td>${agg.nombre}</td>
             <td>${agg.cantidad}</td>
             <td>${product.marca ?? ''}</td>
             <td>${product.modelo ?? ''}</td>
             <td>${agg.disponible ? 'Sí' : 'No'}</td>
             <td>${product.precio != null ? Number(product.precio).toFixed(2) : ''}</td>
-            <td>${agg.fechaAgregado ? formatDateLocal(agg.fechaAgregado) : ''}</td>
         `;
         tr.addEventListener('click', () => openProductDetailsModal(product.idProducto));
         tableBody.appendChild(tr);
@@ -328,6 +315,7 @@ async function openProductDetailsModal(productId) {
                         <div class="col-12 col-md-6"><strong>Precio:</strong> ${product.precio != null ? Number(product.precio).toFixed(2) : ''}</div>
                         <div class="col-12 col-md-6"><strong>Costo:</strong> ${product.costo != null ? Number(product.costo).toFixed(2) : ''}</div>
                         <div class="col-12"><strong>Descripción:</strong> ${product.descripcion ?? ''}</div>
+                        <div class="col-12"><strong>Estado:</strong> ${details[0]?.estado ?? ''}</div>
                         <div class="col-12"><strong>Activo:</strong> ${product.activo ? 'Sí' : 'No'}</div>
                     </div>
                     <hr/>
@@ -341,7 +329,6 @@ async function openProductDetailsModal(productId) {
                                     <th>Cantidad</th>
                                     <th>Estado</th>
                                     <th>Disponible</th>
-                                    <th>Fecha agregado</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -353,7 +340,6 @@ async function openProductDetailsModal(productId) {
                                             <td>${d.cantidad ?? ''}</td>
                                             <td>${d.estado ?? ''}</td>
                                             <td>${d.disponible ? 'Sí' : 'No'}</td>
-                                            <td>${d.fechaAgregado ? formatDateLocal(d.fechaAgregado) : ''}</td>
                                         </tr>
                                     `).join('')}
                             </tbody>
