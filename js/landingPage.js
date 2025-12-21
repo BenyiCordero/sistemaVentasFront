@@ -111,12 +111,16 @@ async function updateDashboardUI() {
             return null;
         });
 
-        if (profile) {
-            const nombreTop = document.getElementById('nombre-top');
-            const letraIcon = document.getElementById('letra-icon');
+        const nombreTop = document.getElementById('nombre-top');
+        const letraIcon = document.getElementById('letra-icon');
 
+        if (profile) {
             if (nombreTop) nombreTop.textContent = profile.nombreCompleto || profile.nombreSimple;
             if (letraIcon) letraIcon.textContent = profile.primeros || (profile.nombreSimple?.charAt(0)?.toUpperCase()) || 'U';
+        } else {
+            // Default on error
+            if (nombreTop) nombreTop.textContent = 'Usuario';
+            if (letraIcon) letraIcon.textContent = 'U';
         }
 
         const metrics = await fetchDashboardMetrics();

@@ -90,7 +90,7 @@ function filterClients() {
 }
 
 
-async function fetchClients() {
+async function fetchClients(retry = false) {
   const token = localStorage.getItem("authToken");
   const res = await fetch(GET_CLIENTS_ENDPOINT, {
     method: "GET",
@@ -100,6 +100,12 @@ async function fetchClients() {
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && !retry) {
+      // Import refreshToken dynamically or assume it's available
+      const { refreshToken } = await import("./session.js");
+      await refreshToken();
+      return fetchClients(true); // Retry
+    }
     let txt = `Status ${res.status}`;
     try {
       const obj = await res.json();
