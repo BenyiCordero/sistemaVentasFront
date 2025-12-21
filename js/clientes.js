@@ -24,9 +24,6 @@ function renderClientRow(client) {
   ]
     .filter(Boolean)
     .join(" ");
-  const fechaRegistro = new Date(
-    client.createdAt || Date.now()
-  ).toLocaleDateString();
 
   tr.innerHTML = `
     <td>${client.idCliente ?? client.id ?? ""}</td>
@@ -34,7 +31,6 @@ function renderClientRow(client) {
     <td>${client.persona.numeroTelefono || "N/A"}</td>
     <td><span class="badge bg-${client.creditoActivo ? "success" : "secondary"
     }">${client.creditoActivo ? "Activo" : "Inactivo"}</span></td>
-    <td>${fechaRegistro}</td>
     <td>
         <button class="btn btn-sm btn-outline-primary btn-edit me-1" data-id="${client.idCliente || client.id
     }">
@@ -90,7 +86,7 @@ function filterClients() {
 }
 
 
-async function fetchClients() {
+async function fetchClients(retry = false) {
   const token = localStorage.getItem("authToken");
   const res = await fetch(GET_CLIENTS_ENDPOINT, {
     method: "GET",
@@ -100,6 +96,12 @@ async function fetchClients() {
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && !retry) {
+      // Import refreshToken dynamically or assume it's available
+      const { refreshToken } = await import("./session.js");
+      await refreshToken();
+      return fetchClients(true); // Retry
+    }
     let txt = `Status ${res.status}`;
     try {
       const obj = await res.json();

@@ -27,18 +27,27 @@ async function initPartials() {
 
     try{
         const profile = await getUserProfile().catch(err => {
-            console.warn("No se pudo obtener el perfil");
+            console.warn("No se pudo obtener el perfil, usando valores por defecto", err);
             return null;
         });
 
-        if(profile){
-            const nombreTop = document.getElementById('nombre-top');
-            const letraIcon = document.getElementById('letra-icon');
+        const nombreTop = document.getElementById('nombre-top');
+        const letraIcon = document.getElementById('letra-icon');
+        if (profile) {
             if (nombreTop) nombreTop.textContent = profile.nombre + " " + profile.primerApellido + " " + profile.segundoApellido;
             if (letraIcon) letraIcon.textContent = profile.primeros || (profile.nombreSimple?.charAt(0)?.toUpperCase()) || 'U';
+        } else {
+            // Default values on error
+            if (nombreTop) nombreTop.textContent = 'Usuario';
+            if (letraIcon) letraIcon.textContent = 'U';
         }
     } catch(e){
-        console.error("Error rellenando topaBar");
+        console.error("Error rellenando topbar", e);
+        // Fallback defaults
+        const nombreTop = document.getElementById('nombre-top');
+        const letraIcon = document.getElementById('letra-icon');
+        if (nombreTop) nombreTop.textContent = 'Usuario';
+        if (letraIcon) letraIcon.textContent = 'U';
     }
 
     document.dispatchEvent(new CustomEvent('partialsLoaded'));
@@ -76,7 +85,8 @@ function setupCommonBehavior() {
         btnLogout.addEventListener('click', (e) => {
             e.preventDefault();
             localStorage.removeItem('authToken');
-            localStorage.removeItem('sucursalId');            
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('sucursalId');
             clearUserProfile();
             window.location.href = 'landingPage.html';
         });

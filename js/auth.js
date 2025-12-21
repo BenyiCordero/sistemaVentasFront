@@ -132,6 +132,9 @@ if (loginForm) {
             if (responseData.access_token) {
                 localStorage.setItem('email', username);
                 localStorage.setItem('authToken', responseData.access_token);
+                if (responseData.refresh_token) {
+                    localStorage.setItem('refreshToken', responseData.refresh_token);
+                }
                 safeDisplayMessage(authMessage, '¡Inicio de sesión exitoso!');
                 console.log('Login successful. Redirecting to landingPage.html');
                 window.location.href = 'landingPage.html';
@@ -191,7 +194,11 @@ if (registerForm) {
 
             safeDisplayMessage(authMessage, '¡Registro exitoso! Ahora puedes iniciar sesión.');
             if (data.access_token) {
+                localStorage.setItem('email', email);
                 localStorage.setItem('authToken', data.access_token);
+                if (data.refresh_token) {
+                    localStorage.setItem('refreshToken', data.refresh_token);
+                }
                 safeDisplayMessage(authMessage, '¡Inicio de sesión exitoso!');
                 console.log('Login successful. Redirecting to landingPage.html');
                 window.location.href = 'landingPage.html';
@@ -211,6 +218,7 @@ if (logoutButton) {
     logoutButton.addEventListener('click', () => {
         console.log('Logout button clicked. Removing token and redirecting to login.html');
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('sucursalId');
         window.location.href = 'index.html';
     });
