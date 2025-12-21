@@ -170,41 +170,71 @@ async function loadProductsAndDetails() {
     try {
         showLoadingTable(true);
 
-        try {
-            const fetched = await apiGet('/product');
-            if (Array.isArray(fetched)) products = fetched;
-            else if (fetched && Array.isArray(fetched.content)) products = fetched.content;
-            else if (fetched && typeof fetched === 'object') products = [fetched];
-            else products = [];
-        } catch (err) {
-            console.warn('loadProductsAndDetails: GET /product failed:', err.status, err.body);
-            if (String(err.body || '').toLowerCase().includes('no existen productos') ||
-                String(err.body || '').toLowerCase().includes('no hay productos')) {
-                products = [];
-            } else {
-                throw err;
-            }
+        // 1️⃣ Perfil → sucursal
+        const profile = await getUserProfile().catch(() => null);
+        const sucursalId = extractSucursalId(profile);
+        if (!sucursalId) {
+            products = [];
+            inventoryDetailsMap.clear();
+            renderProductsTable([]);
+            return;
         }
 
+        // 2️⃣ Inventario de la sucursal
+        const inventario = await ensureInventoryForSucursal(sucursalId);
+        const inventarioId = extractInventarioId(inventario);
+
+        if (!inventarioId) {
+            products = [];
+            inventoryDetailsMap.clear();
+            renderProductsTable([]);
+            return;
+        }
+
+        // 3️⃣ InventoryDetails DEL inventario actual
+        let details = [];
+        try {
+            const res = await apiGet(`/inventoryDetails/inventario/${inventarioId}`);
+            details = Array.isArray(res) ? res : (res ? [res] : []);
+        } catch (err) {
+            console.warn('No inventoryDetails:', err.status, err.body);
+            details = [];
+        }
+
+        // 4️⃣ Construir mapa productoId → details
         inventoryDetailsMap.clear();
-        const promises = products.map(async (p) => {
-            try {
-                const details = await apiGet(`/inventoryDetails/producto/${p.idProducto}`);
-                inventoryDetailsMap.set(p.idProducto, Array.isArray(details) ? details : (details ? [details] : []));
-            } catch (err) {
-                console.warn(`loadProductsAndDetails: no details for product ${p.idProducto}:`, err.status, err.body);
-                inventoryDetailsMap.set(p.idProducto, []);
+        const productMap = new Map();
+
+        details.forEach(d => {
+            if (!d.producto) return;
+
+            const pid = d.producto.idProducto ?? d.producto.id;
+            if (!pid) return;
+
+            // guardar producto
+            if (!productMap.has(pid)) {
+                productMap.set(pid, d.producto);
             }
+
+            // guardar detalles
+            if (!inventoryDetailsMap.has(pid)) {
+                inventoryDetailsMap.set(pid, []);
+            }
+            inventoryDetailsMap.get(pid).push(d);
         });
-        await Promise.all(promises);
+
+        // 5️⃣ Lista final de productos
+        products = Array.from(productMap.values());
+
         renderProductsTable(products);
-        showLoadingTable(false);
     } catch (err) {
         console.error('loadProductsAndDetails error:', err);
+        notifyError('No se pudieron cargar los productos del inventario');
+    } finally {
         showLoadingTable(false);
-        notifyError('No se pudo cargar productos: ' + (err.body || err.message));
     }
 }
+
 
 function computeAggregateForProduct(product) {
     const details = inventoryDetailsMap.get(product.idProducto) || [];
