@@ -342,6 +342,17 @@ async function updateInventoryDetail(id, payload) {
     return handleResponse(res); // <--- usar handleResponse evita body already read
 }
 
+function updateTotal() {
+        const cantidad = Number(inputCantidad.value || 0);
+        const precio = Number(inputPrecioUnitario.value || 0);
+        const descuento = Number(inputDescuento.value || 0);
+        const impuesto = Number(inputImpuesto.value || 0);
+        const subtotal = cantidad * precio;
+        const descuentoAmount = subtotal * (descuento / 100);
+        const subtotalAfterDescuento = subtotal - descuentoAmount;
+        const impuestoAmount = subtotalAfterDescuento * (impuesto / 100);
+        inputTotal.value = (subtotalAfterDescuento + impuestoAmount).toFixed(2);
+    }
 
 function initModalLogic() {
     const modalEl = document.getElementById('modalNewSale');
@@ -354,17 +365,7 @@ function initModalLogic() {
     const inputTotal = document.getElementById('inputTotal');
     const selectProducto = document.getElementById('selectProducto');
 
-    function updateTotal() {
-        const cantidad = Number(inputCantidad.value || 0);
-        const precio = Number(inputPrecioUnitario.value || 0);
-        const descuento = Number(inputDescuento.value || 0);
-        const impuesto = Number(inputImpuesto.value || 0);
-        const subtotal = cantidad * precio;
-        const descuentoAmount = subtotal * (descuento / 100);
-        const subtotalAfterDescuento = subtotal - descuentoAmount;
-        const impuestoAmount = subtotalAfterDescuento * (impuesto / 100);
-        inputTotal.value = (subtotalAfterDescuento + impuestoAmount).toFixed(2);
-    }
+    
 
     inputCantidad.addEventListener('input', updateTotal);
     inputPrecioUnitario.addEventListener('input', updateTotal);
