@@ -1,7 +1,7 @@
 import { getUserProfile } from './session.js';
 import { notifySuccess, notifyError } from './utils.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 let products = [];
 let inventoryDetailsMap = new Map();
