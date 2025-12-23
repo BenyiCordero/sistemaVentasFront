@@ -25,40 +25,16 @@ async function fetchSucursalByEmail(email) {
         throw new Error('No se pudo obtener la sucursal');
     }
 
-    return res.json();
+    const data = await res.json();
+
+    return data?.idSucursal ?? null;
 }
-
-async function resolveSucursalOnLogin() {
-    const profile = await getUserProfile().catch(() => null);
-    if (!profile) return null;
-
-    if (profile.idSucursal) {
-        localStorage.setItem('sucursalId', profile.idSucursal);
-        return profile.idSucursal;
-    }
-
-    if (profile.email) {
-        try {
-            const sucursal = await fetchSucursalByEmail(profile.email);
-            if (sucursal?.idSucursal) {
-                localStorage.setItem('sucursalId', sucursal.idSucursal);
-                return sucursal.idSucursal;
-            }
-        } catch (e) {
-            console.warn('No se pudo resolver sucursal en login', e);
-        }
-    }
-
-    localStorage.removeItem('sucursalId');
-    return null;
-}
-
 
 async function fetchDashboardMetrics() {
     const token = localStorage.getItem('authToken');
     const profile = await getUserProfile();
 
-    const sucursalId = profile.idSucursal;
+    const sucursalId = await fetchSucursalByEmail(profile.email);
 
     let ingresos = 0;
     let gastos = 0;
@@ -70,7 +46,7 @@ async function fetchDashboardMetrics() {
     }
 
     try {
-        const ventasResponse = await fetch(`${BASE_API_URL}/sell/total-mes`, {
+        const ventasResponse = await fetch(`${BASE_API_URL}/sell/total-mes/${sucursalId}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -82,7 +58,7 @@ async function fetchDashboardMetrics() {
             ingresos = await ventasResponse.json();
         }
 
-        const comprasResponse = await fetch(`${BASE_API_URL}/inventoryDetails/total-mes`, {
+        const comprasResponse = await fetch(`${BASE_API_URL}/inventoryDetails/total-mes/${sucursalId}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -94,7 +70,7 @@ async function fetchDashboardMetrics() {
             compras = await comprasResponse.json();
         }
 
-        const gastosResponse = await fetch(`${BASE_API_URL}/gasto/total/mes/1`,{
+        const gastosResponse = await fetch(`${BASE_API_URL}/gasto/total/mes/${sucursalId}`,{
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,

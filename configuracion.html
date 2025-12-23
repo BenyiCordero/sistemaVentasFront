@@ -22,16 +22,18 @@
 
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3 class="mb-0">Configuración</h3>
+                <!--
                 <div>
                     <button id="btnSaveProfile" class="btn btn-primary">
                         <i class="bi bi-check-lg"></i> Guardar cambios
                     </button>
                 </div>
+                -->
             </div>
 
             <div class="row g-4">
                 <!-- Información del perfil -->
-                <div class="col-12 col-lg-6">
+                <div class="col-12 col-lg-12">
                     <div class="panel-card rounded-15 p-4">
                         <h5 class="mb-4">
                             <i class="bi bi-person-circle me-2"></i>
@@ -65,18 +67,12 @@
                                     <input name="telefono" id="inputTelefono" class="form-control" type="text"
                                         placeholder="+1234567890">
                                 </div>
-
-                                <div class="col-12">
-                                    <label class="form-label">Bio / Descripción</label>
-                                    <textarea name="bio" id="inputBio" class="form-control" rows="3"
-                                        placeholder="Cuéntanos sobre ti..."></textarea>
-                                </div>
                             </div>
                         </form>
                     </div>
                 </div>
 
-                <!-- Cambio de contraseña -->
+                <!-- Cambio de contraseña 
                 <div class="col-12 col-lg-6">
                     <div class="panel-card rounded-15 p-4">
                         <h5 class="mb-4">
@@ -110,7 +106,7 @@
                     </div>
                 </div>
 
-                <!-- Preferencias -->
+                Preferencias 
                 <div class="col-12 col-lg-6">
                     <div class="panel-card rounded-15 p-4">
                         <h5 class="mb-4">
@@ -163,8 +159,9 @@
                         </form>
                     </div>
                 </div>
+                
 
-                <!-- Información de la cuenta -->
+                Información de la cuenta 
                 <div class="col-12 col-lg-6">
                     <div class="panel-card rounded-15 p-4">
                         <h5 class="mb-4">
@@ -197,6 +194,7 @@
                         </div>
                     </div>
                 </div>
+                -->
 
                 <!-- Acciones de cuenta -->
                 <div class="col-12">
@@ -206,21 +204,23 @@
                             Acciones de Cuenta
                         </h5>
                         <div class="row g-3">
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-6">
                                 <button id="btnExportData" class="btn btn-outline-info w-100">
                                     <i class="bi bi-download"></i> Exportar mis datos
                                 </button>
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-6">
                                 <button id="btnClearCache" class="btn btn-outline-warning w-100">
                                     <i class="bi bi-arrow-clockwise"></i> Limpiar caché
                                 </button>
                             </div>
+                            <!--
                             <div class="col-12 col-md-4">
                                 <button id="btnDeleteAccount" class="btn btn-outline-danger w-100">
                                     <i class="bi bi-person-x"></i> Eliminar cuenta
                                 </button>
                             </div>
+                            -->
                         </div>
                     </div>
                 </div>
