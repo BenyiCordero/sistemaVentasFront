@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 const GET_USERS_ENDPOINT = `${BASE_API_URL}/worker`;
 const CREATE_USER_ENDPOINT = `${BASE_API_URL}/auth/register`;
@@ -346,6 +346,28 @@ function initModalLogic() {
                 if (editingUserId) {
                     await updateUser(editingUserId, payload);
                     displayMessage('Usuario actualizado correctamente.');
+                    // 🔑 Solo si edité MI PROPIO usuario
+    const profile = await getUserProfile().catch(() => null);
+    const loggedUserId =
+        profile?.idUsuario ??
+        profile?.id ??
+        profile?.usuarioId ??
+        null;
+
+    if (
+        loggedUserId &&
+        String(editingUserId) === String(loggedUserId) &&
+        payload.sucursal
+    ) {
+        localStorage.setItem('sucursalId', payload.sucursal);
+
+        // 🔔 Notificar a otros módulos (ventas, inventario, etc.)
+        document.dispatchEvent(
+            new CustomEvent('sucursalUpdated', {
+                detail: { sucursalId: payload.sucursal }
+            })
+        );
+    }
                 } else {
                     await createUser(payload);
                     displayMessage('Usuario creado correctamente.');

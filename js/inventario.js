@@ -1,7 +1,7 @@
 import { getUserProfile } from './session.js';
 import { notifySuccess, notifyError } from './utils.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 let products = [];
 let inventoryDetailsMap = new Map();
@@ -345,26 +345,28 @@ async function openProductDetailsModal(productId) {
                     <h6>Detalles en inventario</h6>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th>ID Detalle</th>
-                                    <th>ID Inventario</th>
-                                    <th>Cantidad</th>
-                                    <th>Estado</th>
-                                    <th>Disponible</th>
-                                </tr>
-                            </thead>
+                             <thead>
+                                 <tr>
+                                     <th>ID Detalle</th>
+                                     <th>ID Inventario</th>
+                                     <th>Cantidad</th>
+                                     <th>Estado</th>
+                                     <th>Método de Pago</th>
+                                     <th>Disponible</th>
+                                 </tr>
+                             </thead>
                             <tbody>
-                                ${(details.length === 0) ? `<tr><td colspan="6" class="text-center text-muted">No hay registros</td></tr>` :
-                                    details.map(d => `
-                                        <tr>
-                                            <td>${d.idDetalle ?? ''}</td>
-                                            <td>${d.inventario?.idInventario ?? (d.idInventario ?? '')}</td>
-                                            <td>${d.cantidad ?? ''}</td>
-                                            <td>${d.estado ?? ''}</td>
-                                            <td>${d.disponible ? 'Sí' : 'No'}</td>
-                                        </tr>
-                                    `).join('')}
+                                 ${(details.length === 0) ? `<tr><td colspan="7" class="text-center text-muted">No hay registros</td></tr>` :
+                                     details.map(d => `
+                                         <tr>
+                                             <td>${d.idDetalle ?? ''}</td>
+                                             <td>${d.inventario?.idInventario ?? (d.idInventario ?? '')}</td>
+                                             <td>${d.cantidad ?? ''}</td>
+                                             <td>${d.estado ?? ''}</td>
+                                             <td>${d.metodoPago ?? ''}</td>
+                                             <td>${d.disponible ? 'Sí' : 'No'}</td>
+                                         </tr>
+                                     `).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -433,7 +435,7 @@ async function performLiveSearch(query, tokenId) {
     }
 }
 
-function initProductModal() {
+async function initProductModal() {
     const modalEl = q('#modalProduct');
     if (!modalEl) return;
 
@@ -446,7 +448,8 @@ function initProductModal() {
     }
 
     const handler = async (e) => {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
 
         const payloadProducto = {
             nombre: q('#inputNombre')?.value?.trim() || '',
@@ -464,91 +467,59 @@ function initProductModal() {
         }
 
         const btn = q('#btnSubmitProduct');
+
         try {
-            if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Guardando...';
+            }
 
             const created = await apiPost('/product', payloadProducto);
-            console.debug('Producto creado (server):', created);
             notifySuccess('Producto creado correctamente.');
 
             const profile = await getUserProfile().catch(() => null);
             const sucursalId = extractSucursalId(profile);
+
             let inventarioObj = null;
             if (sucursalId) {
                 inventarioObj = await ensureInventoryForSucursal(sucursalId);
             }
-            console.debug('inventarioObj after ensureInventoryForSucursal:', inventarioObj);
 
             const stockVal = Number(q('#inputStock')?.value || 0);
-
             let inventarioIdValue = extractInventarioId(inventarioObj);
 
-            if (!inventarioIdValue && sucursalId) {
-                try {
-                    const direct = await apiGet(`/inventory/${sucursalId}`);
-                    console.debug('Direct GET /inventory/{sucursalId} returned (strategy B):', direct);
-                    inventarioIdValue = extractInventarioId(direct);
-                } catch (err) {
-                    console.warn('Direct GET /inventory/{sucursalId} (strategy B) failed:', err.status, err.body);
-                }
-            }
-
-            if (!inventarioIdValue) {
-                try {
-                    const allInv = await apiGet('/inventory');
-                    console.debug('GET /inventory (strategy C) returned:', allInv);
-                    const arr = Array.isArray(allInv) ? allInv : (allInv ? [allInv] : []);
-                    const found = arr.find(inv => {
-                        if (!inv) return false;
-                        if (inv.sucursal && (inv.sucursal.idSucursal == sucursalId || inv.sucursal.id == sucursalId)) return true;
-                        if (inv.idSucursal && inv.idSucursal == sucursalId) return true;
-                        if (inv.sucursalId && inv.sucursalId == sucursalId) return true;
-                        return false;
-                    });
-                    if (found) inventarioIdValue = extractInventarioId(found);
-                    console.debug('Strategy C found inventory, extracted idInventario:', inventarioIdValue, 'found=', found);
-                } catch (err) {
-                    console.warn('GET /inventory (strategy C) failed:', err.status, err.body);
-                }
-            }
-
-            const productoIdValue = extractProductoId(created) ?? created?.idProducto ?? created?.id ?? created?.id_producto ?? null;
-
-            console.debug('Resolved ids final -> inventarioIdValue:', inventarioIdValue, 'productoIdValue:', productoIdValue);
+            const productoIdValue =
+                extractProductoId(created) ??
+                created?.idProducto ??
+                created?.id ??
+                created?.id_producto ??
+                null;
 
             const inventarioDetailPayload = {
                 cantidad: stockVal,
                 estado: q('#inputEstado')?.value?.trim() || 'Bueno',
-                disponible: (stockVal > 0),
+                disponible: stockVal > 0,
                 idInventario: inventarioIdValue,
-                idProducto: productoIdValue
+                idProducto: productoIdValue,
+                metodoPago: q('#inputMetodoPago')?.value?.trim() || null
             };
 
-            console.debug('inventarioDetailPayload about to POST:', inventarioDetailPayload);
-
             if (inventarioIdValue && productoIdValue) {
-                try {
-                    const savedDetail = await apiPost('/inventoryDetails', inventarioDetailPayload);
-                    console.info('InventarioDetails creado:', savedDetail);
-                    notifySuccess('InventarioDetails creado y ligado correctamente.');
-                } catch (err) {
-                    console.error('POST /inventoryDetails failed:', err.status, err.body);
-                    notifyError('Producto creado, pero no se pudo ligar al inventario: ' + (err.body || err.message));
-                }
+                await apiPost('/inventoryDetails', inventarioDetailPayload);
+                notifySuccess('InventarioDetails creado y ligado correctamente.');
             } else {
-                console.warn('Faltan ids para crear InventarioDetails:', inventarioIdValue, productoIdValue);
-                notifyError('Producto creado pero no se pudo ligar al inventario: idInventario faltante.');
+                notifyError('Producto creado pero no se pudo ligar al inventario.');
             }
 
-            try { form.reset(); } catch (err) {}
-            if (modalProductInstance) modalProductInstance.hide();
+            form.reset();
+            modalProductInstance?.hide();
             await loadProductsAndDetails();
 
         } catch (err) {
-            console.error('Error creando producto/inventario:', err);
-            notifyError('No se pudo crear el producto: ' + (err.body || err.message));
+            console.error(err);
+            notifyError('No se pudo crear el producto.');
         } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Guardar producto'; }
+            await updateNewProductButton();
         }
     };
 
@@ -557,10 +528,63 @@ function initProductModal() {
 
     q('#btnOpenNewProduct')?.addEventListener('click', () => {
         q('#modalProductTitle').textContent = 'Nuevo producto';
-        try { q('#formProduct').reset(); } catch (e) {}
+        form.reset();
         modalProductInstance.show();
     });
+
+    try {
+        const profile = await getUserProfile().catch(() => null);
+        const sucursalId = extractSucursalId(profile);
+        const btn = q('#btnOpenNewProduct');
+
+        if (!sucursalId) {
+            btn.disabled = true;
+
+            let msgEl = q('#noSucursalMessage');
+            if (!msgEl) {
+                msgEl = document.createElement('small');
+                msgEl.id = 'noSucursalMessage';
+                msgEl.className = 'text-danger d-block mt-1';
+                msgEl.textContent = 'Debes tener una sucursal asignada para agregar productos.';
+                btn.parentNode.insertBefore(msgEl, btn.nextSibling);
+            } else {
+                msgEl.style.display = 'block';
+            }
+        } else {
+            btn.disabled = false;
+            q('#noSucursalMessage')?.style && (q('#noSucursalMessage').style.display = 'none');
+        }
+    } catch (err) {
+        console.warn('Error checking sucursal:', err);
+    }
 }
+
+async function updateNewProductButton() {
+    const btn = q('#btnOpenNewProduct');
+    if (!btn) return;
+
+    const profile = await getUserProfile().catch(() => null);
+    const sucursalId = extractSucursalId(profile);
+
+    if (!sucursalId) {
+        btn.disabled = true;
+
+        let msgEl = q('#noSucursalMessage');
+        if (!msgEl) {
+            msgEl = document.createElement('small');
+            msgEl.id = 'noSucursalMessage';
+            msgEl.className = 'text-danger d-block mt-1';
+            msgEl.textContent = 'Debes tener una sucursal asignada para agregar productos.';
+            btn.parentNode.insertBefore(msgEl, btn.nextSibling);
+        } else {
+            msgEl.style.display = 'block';
+        }
+    } else {
+        btn.disabled = false;
+        q('#noSucursalMessage')?.style && (q('#noSucursalMessage').style.display = 'none');
+    }
+}
+
 
 function initFilters() {
     q('#btnRefreshProducts')?.addEventListener('click', () => loadProductsAndDetails());
@@ -582,3 +606,12 @@ function initPage() {
 }
 
 document.addEventListener('DOMContentLoaded', initPage);
+document.addEventListener('sucursalUpdated', async (e) => {
+    const sucursalId = e.detail?.sucursalId;
+
+    if (sucursalId) {
+        console.info('Sucursal actualizada en inventario:', sucursalId);
+        await updateNewProductButton();
+        await loadProductsAndDetails();
+    }
+});
