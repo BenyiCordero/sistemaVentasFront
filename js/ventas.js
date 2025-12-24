@@ -25,6 +25,15 @@ let currentClients = [];
 let currentProducts = [];
 let autocompleteInitialized = false;
 
+function getStatusBadgeClass(estado) {
+    switch(estado) {
+        case 'PAGADA': return 'bg-success';
+        case 'PENDIENTE': return 'bg-secondary';
+        case 'CANCELADA': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
 // Funciones de autocompletado
 function filterList(list, query, displayFn) {
     if (!query) return list.slice(0, 20); // mostrar primeros 20 cuando vacío
@@ -181,7 +190,7 @@ function renderSaleRow(sale) {
     <td>${cantidad || ''}</td>
     <td>$ ${totalVenta}</td>
     <td>${metodoPago ? `<span class="badge bg-secondary">${metodoPago}</span>` : ''}</td>
-    <td>${estado ? `<span class="badge bg-secondary">${estado}</span>` : ''}</td>
+    <td>${estado ? `<span class="badge ${getStatusBadgeClass(estado)}">${estado}</span>` : ''}</td>
     <td class="text-center">
         <button class="btn btn-sm btn-outline-info btn-view me-1" data-id="${sale.idVenta || sale.id}" title="Ver detalles completos"><i class="bi bi-eye"></i></button>
         <button disabled class="btn btn-sm btn-outline-warning btn-modify" data-id="${sale.idVenta || sale.id}" title="Modificar venta"><i class="bi bi-pencil-square"></i></button>
@@ -677,7 +686,7 @@ function openViewModal(idVenta) {
                          <strong>Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
                      </div>
                      <div class="col-12 col-md-6">
-                         <strong>Estado:</strong> <span class="badge bg-secondary">${sale.estado || 'No especificado'}</span>
+                         <strong>Estado:</strong> <span class="badge ${getStatusBadgeClass(sale.estado)}">${sale.estado || 'No especificado'}</span>
                      </div>
                      <div class="col-12">
                          <strong>Notas:</strong> ${sale.notas || 'Sin notas'}
