@@ -1,5 +1,5 @@
 // js/session.js
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 const GET_NAME_API_URL = `${BASE_API_URL}/worker/getByEmail`;
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -66,53 +66,30 @@ async function fetchUserProfileFromApiInternal(retry = false, attempt = 0) {
         throw new Error('Network error after retries');
     }
 
-    const sucursalRes = await fetch(`${BASE_API_URL}/sucursal/getByUsuario`,{
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ email })
-    });
+    // Try to get sucursal, but don't fail if user has no sucursal assigned
+    let dataSuc = null;
+    try {
+        const sucursalRes = await fetch(`${BASE_API_URL}/sucursal/getByUsuario`,{
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
+            body: JSON.stringify({ email })
+        });
 
-    if (!res.ok) {
-        if (res.status === 401 && !retry) {
-            // Try refresh token
-            await refreshToken();
-            // Retry with new token
-            return fetchUserProfileFromApiInternal(true, 0);
+        if (sucursalRes.ok) {
+            dataSuc = await sucursalRes.json();
+        } else {
+            console.warn('Usuario no tiene sucursal asignada - continuando sin sucursal');
         }
-        // For other errors, if not 401, maybe retry if it's server error
-        if (res.status >= 500 && attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-            return fetchUserProfileFromApiInternal(retry, attempt + 1);
-        }
-        let txt = `Status ${res.status}`;
-        try {
-            const obj = await res.json();
-            txt = obj.message || JSON.stringify(obj);
-        } catch (e) {
-            const t = await res.text();
-            if (t) txt = t;
-        }
-        throw new Error(txt);
-    }
-
-    if (!sucursalRes.ok) {
-        let txt = `Status ${sucursalRes.status}`;
-        try {
-            const obj = await sucursalRes.json();
-            txt = obj.message || JSON.stringify(obj);
-        } catch (e) {
-            const t = await res.text();
-            if (t) txt = t;
-        }
-        throw new Error(txt);
+    } catch (sucursalError) {
+        console.warn('Error obteniendo sucursal del usuario:', sucursalError.message);
+        console.warn('Continuando sin información de sucursal');
     }
 
     const data = await res.json();
-    const dataSuc = await sucursalRes.json();
 
     if (!data || !data.persona) throw new Error('Respuesta inválida de perfil');
     const persona = data.persona;
@@ -133,7 +110,7 @@ async function fetchUserProfileFromApiInternal(retry = false, attempt = 0) {
         nombreSimple: persona.nombre || '',
         primeros: persona.nombre ? persona.nombre.charAt(0).toUpperCase() : (nombre ? nombre.charAt(0).toUpperCase() : 'U'),
         telefono: persona.numeroTelefono,
-        idSucursal: dataSuc.idSucursal,
+        idSucursal: dataSuc?.idSucursal || null,
         raw: data
     };
 
