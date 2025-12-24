@@ -346,28 +346,27 @@ function initModalLogic() {
                 if (editingUserId) {
                     await updateUser(editingUserId, payload);
                     displayMessage('Usuario actualizado correctamente.');
-                    // 🔑 Solo si edité MI PROPIO usuario
-    const profile = await getUserProfile().catch(() => null);
-    const loggedUserId =
-        profile?.idUsuario ??
-        profile?.id ??
-        profile?.usuarioId ??
-        null;
+                    const profile = await getUserProfile().catch(() => null);
+                    const loggedUserId =
+                        profile?.idUsuario ??
+                        profile?.id ??
+                        profile?.usuarioId ??
+                        null;
 
-    if (
-        loggedUserId &&
-        String(editingUserId) === String(loggedUserId) &&
-        payload.sucursal
-    ) {
-        localStorage.setItem('sucursalId', payload.sucursal);
+                    if (
+                        loggedUserId &&
+                        String(editingUserId) === String(loggedUserId) &&
+                        payload.sucursal
+                    ) {
+                        localStorage.setItem('sucursalId', payload.sucursal);
 
-        // 🔔 Notificar a otros módulos (ventas, inventario, etc.)
-        document.dispatchEvent(
-            new CustomEvent('sucursalUpdated', {
-                detail: { sucursalId: payload.sucursal }
-            })
-        );
-    }
+                        // 🔔 Notificar a otros módulos (ventas, inventario, etc.)
+                        document.dispatchEvent(
+                            new CustomEvent('sucursalUpdated', {
+                                detail: { sucursalId: payload.sucursal }
+                            })
+                        );
+                    }
                 } else {
                     await createUser(payload);
                     displayMessage('Usuario creado correctamente.');

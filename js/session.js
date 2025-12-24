@@ -175,8 +175,6 @@ document.addEventListener('sucursalUpdated', async (e) => {
 
     if (sucursalId) {
         console.info('Sucursal actualizada en inventario:', sucursalId);
-
-        // 🔥 FORZAR REFRESH DEL PERFIL
         await getUserProfile({ forceRefresh: true });
         await loadProductsAndDetails();
     }
