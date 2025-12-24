@@ -345,26 +345,28 @@ async function openProductDetailsModal(productId) {
                     <h6>Detalles en inventario</h6>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th>ID Detalle</th>
-                                    <th>ID Inventario</th>
-                                    <th>Cantidad</th>
-                                    <th>Estado</th>
-                                    <th>Disponible</th>
-                                </tr>
-                            </thead>
+                             <thead>
+                                 <tr>
+                                     <th>ID Detalle</th>
+                                     <th>ID Inventario</th>
+                                     <th>Cantidad</th>
+                                     <th>Estado</th>
+                                     <th>Método de Pago</th>
+                                     <th>Disponible</th>
+                                 </tr>
+                             </thead>
                             <tbody>
-                                ${(details.length === 0) ? `<tr><td colspan="6" class="text-center text-muted">No hay registros</td></tr>` :
-                                    details.map(d => `
-                                        <tr>
-                                            <td>${d.idDetalle ?? ''}</td>
-                                            <td>${d.inventario?.idInventario ?? (d.idInventario ?? '')}</td>
-                                            <td>${d.cantidad ?? ''}</td>
-                                            <td>${d.estado ?? ''}</td>
-                                            <td>${d.disponible ? 'Sí' : 'No'}</td>
-                                        </tr>
-                                    `).join('')}
+                                 ${(details.length === 0) ? `<tr><td colspan="7" class="text-center text-muted">No hay registros</td></tr>` :
+                                     details.map(d => `
+                                         <tr>
+                                             <td>${d.idDetalle ?? ''}</td>
+                                             <td>${d.inventario?.idInventario ?? (d.idInventario ?? '')}</td>
+                                             <td>${d.cantidad ?? ''}</td>
+                                             <td>${d.estado ?? ''}</td>
+                                             <td>${d.metodoPago ?? ''}</td>
+                                             <td>${d.disponible ? 'Sí' : 'No'}</td>
+                                         </tr>
+                                     `).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -521,7 +523,8 @@ function initProductModal() {
                 estado: q('#inputEstado')?.value?.trim() || 'Bueno',
                 disponible: (stockVal > 0),
                 idInventario: inventarioIdValue,
-                idProducto: productoIdValue
+                idProducto: productoIdValue,
+                metodoPago: q('#inputMetodoPago')?.value?.trim() || null
             };
 
             console.debug('inventarioDetailPayload about to POST:', inventarioDetailPayload);
