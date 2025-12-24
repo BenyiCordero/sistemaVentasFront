@@ -169,3 +169,15 @@ export async function getUserProfile({ forceRefresh = false } = {}) {
         throw e; // Re-throw if no fallback
     }
 }
+
+document.addEventListener('sucursalUpdated', async (e) => {
+    const sucursalId = e.detail?.sucursalId;
+
+    if (sucursalId) {
+        console.info('Sucursal actualizada en inventario:', sucursalId);
+
+        // 🔥 FORZAR REFRESH DEL PERFIL
+        await getUserProfile({ forceRefresh: true });
+        await loadProductsAndDetails();
+    }
+});

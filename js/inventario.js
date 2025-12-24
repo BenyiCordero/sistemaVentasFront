@@ -519,10 +519,7 @@ async function initProductModal() {
             console.error(err);
             notifyError('No se pudo crear el producto.');
         } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Guardar producto';
-            }
+            await updateNewProductButton();
         }
     };
 
@@ -562,6 +559,32 @@ async function initProductModal() {
     }
 }
 
+async function updateNewProductButton() {
+    const btn = q('#btnOpenNewProduct');
+    if (!btn) return;
+
+    const profile = await getUserProfile().catch(() => null);
+    const sucursalId = extractSucursalId(profile);
+
+    if (!sucursalId) {
+        btn.disabled = true;
+
+        let msgEl = q('#noSucursalMessage');
+        if (!msgEl) {
+            msgEl = document.createElement('small');
+            msgEl.id = 'noSucursalMessage';
+            msgEl.className = 'text-danger d-block mt-1';
+            msgEl.textContent = 'Debes tener una sucursal asignada para agregar productos.';
+            btn.parentNode.insertBefore(msgEl, btn.nextSibling);
+        } else {
+            msgEl.style.display = 'block';
+        }
+    } else {
+        btn.disabled = false;
+        q('#noSucursalMessage')?.style && (q('#noSucursalMessage').style.display = 'none');
+    }
+}
+
 
 function initFilters() {
     q('#btnRefreshProducts')?.addEventListener('click', () => loadProductsAndDetails());
@@ -583,3 +606,12 @@ function initPage() {
 }
 
 document.addEventListener('DOMContentLoaded', initPage);
+document.addEventListener('sucursalUpdated', async (e) => {
+    const sucursalId = e.detail?.sucursalId;
+
+    if (sucursalId) {
+        console.info('Sucursal actualizada en inventario:', sucursalId);
+        await updateNewProductButton();
+        await loadProductsAndDetails();
+    }
+});
