@@ -32,38 +32,28 @@
                 </div>
             </div>
 
-            <!-- Filtros de reporte -->
-            <div class="card rounded-15 mb-3">
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">Tipo de reporte</label>
-                            <select id="selectReportType" class="form-select">
-                                <option value="gastos">Reporte de gastos</option>
-                                <option value="ventas">Reporte de ventas</option>
-                                <option value="inventario">Reporte de inventario</option>
-                                <option value="general">Reporte general</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">Fecha inicio</label>
-                            <input id="inputStartDate" class="form-control" type="date">
-                        </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">Fecha fin</label>
-                            <input id="inputEndDate" class="form-control" type="date">
-                        </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label">&nbsp;</label>
-                            <div>
-                                <button id="btnApplyFilters" class="btn btn-outline-primary w-100">
-                                    <i class="bi bi-funnel"></i> Aplicar filtros
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Pestañas de reportes -->
+            <ul class="nav nav-tabs" id="reportTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas" type="button" role="tab" aria-controls="ventas" aria-selected="true">Ventas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="gastos-tab" data-bs-toggle="tab" data-bs-target="#gastos" type="button" role="tab" aria-controls="gastos" aria-selected="false">Gastos</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="inventario-tab" data-bs-toggle="tab" data-bs-target="#inventario" type="button" role="tab" aria-controls="inventario" aria-selected="false">Inventario</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="financieros-tab" data-bs-toggle="tab" data-bs-target="#financieros" type="button" role="tab" aria-controls="financieros" aria-selected="false">Financieros</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab" aria-controls="clientes" aria-selected="false">Clientes</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="usuarios-tab" data-bs-toggle="tab" data-bs-target="#usuarios" type="button" role="tab" aria-controls="usuarios" aria-selected="false">Usuarios</button>
+                </li>
+            </ul>
+            <div class="tab-content" id="reportTabsContent">
 
             <!-- Resumen de métricas -->
             <div class="row g-3 mb-3">
@@ -164,13 +154,15 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Tipo de reporte</label>
-                                <select name="tipoReporte" id="selectTipoReporte" class="form-select" required>
-                                    <option value="">Seleccionar</option>
-                                    <option value="gastos">Gastos</option>
-                                    <option value="ventas">Ventas</option>
-                                    <option value="inventario">Inventario</option>
-                                    <option value="general">General</option>
-                                </select>
+                                 <select name="tipoReporte" id="selectTipoReporte" class="form-select" required>
+                                     <option value="">Seleccionar</option>
+                                     <option value="ventas">Ventas</option>
+                                     <option value="gastos">Gastos</option>
+                                     <option value="inventario">Inventario</option>
+                                     <option value="financieros">Financieros</option>
+                                     <option value="clientes">Clientes</option>
+                                     <option value="usuarios">Usuarios</option>
+                                 </select>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Formato</label>

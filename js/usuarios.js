@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 const GET_USERS_ENDPOINT = `${BASE_API_URL}/worker`;
 const CREATE_USER_ENDPOINT = `${BASE_API_URL}/auth/register`;
@@ -360,7 +360,6 @@ function initModalLogic() {
                     ) {
                         localStorage.setItem('sucursalId', payload.sucursal);
 
-                        // 🔔 Notificar a otros módulos (ventas, inventario, etc.)
                         document.dispatchEvent(
                             new CustomEvent('sucursalUpdated', {
                                 detail: { sucursalId: payload.sucursal }
