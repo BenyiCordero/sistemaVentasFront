@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
@@ -14,6 +14,8 @@ const GET_INVENTORY_DETAILS_BY_PRODUCT = (idProducto) => `${BASE_API_URL}/invent
 const UPDATE_INVENTORY_DETAIL_ENDPOINT = (id) => `${BASE_API_URL}/inventoryDetails/${id}`;
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
+const GET_TARJETAS_ENDPOINT = `${BASE_API_URL}/tarjeta`;
+const CREATE_TARJETA_ENDPOINT = `${BASE_API_URL}/tarjeta`;
 
 const ventasTableBody = () => document.querySelector('#ventasTable tbody');
 const ventasEmpty = () => document.getElementById('ventas-empty');
@@ -21,8 +23,10 @@ const sucursalWarningEl = () => document.getElementById('sucursal-warning');
 
 let currentSucursalId = null;
 let modalInstance = null;
+let cardModalInstance = null;
 let currentClients = [];
 let currentProducts = [];
+let currentCards = [];
 let autocompleteInitialized = false;
 
 function getStatusBadgeClass(estado) {
@@ -211,6 +215,76 @@ function renderSalesTable(sales) {
     sales.forEach(s => tbody.appendChild(renderSaleRow(s)));
 }
 
+function renderCardsTable(cards) {
+    const tbody = document.querySelector('#cardsTable tbody');
+    tbody.innerHTML = '';
+    const emptyEl = document.getElementById('cards-empty');
+    if (!cards || cards.length === 0) {
+        emptyEl.classList.remove('d-none');
+        return;
+    }
+    emptyEl.classList.add('d-none');
+    cards.forEach(card => {
+        const tipoBadge = card.tipoTarjeta === 'CREDITO' ? '<span class="badge bg-success">Crédito</span>' : card.tipoTarjeta === 'DEBITO' ? '<span class="badge bg-info">Débito</span>' : '<span class="badge bg-secondary">Otro</span>';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><i class="bi bi-hash text-muted"></i> ${card.idTarjeta ?? card.id ?? ''}</td>
+            <td><i class="bi bi-credit-card text-muted"></i> ${card.nombreTarjeta ?? ''}</td>
+            <td><i class="bi bi-asterisk text-muted"></i> ${card.numeroTarjeta ?? ''}</td>
+            <td>${tipoBadge}</td>
+            <td>
+                <button class="btn btn-sm btn-primary btn-select-card" data-id="${card.idTarjeta || card.id}">
+                    <i class="bi bi-check-circle"></i> Seleccionar
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterCards() {
+    const nombreTerm = document.getElementById('inputFilterNombre').value.toLowerCase().trim();
+    const numeroTerm = document.getElementById('inputFilterNumero').value.toLowerCase().trim();
+    const tipoFilter = document.getElementById('selectFilterTipo').value;
+
+    let filtered = currentCards.filter(card => {
+        const nombre = (card.nombreTarjeta || '').toLowerCase();
+        const numero = (card.numeroTarjeta || '').toLowerCase();
+        const tipo = (card.tipoTarjeta || '').toLowerCase();
+
+        const matchesNombre = !nombreTerm || nombre.includes(nombreTerm);
+        const matchesNumero = !numeroTerm || numero.includes(numeroTerm);
+        const matchesTipo = !tipoFilter || tipo === tipoFilter.toLowerCase();
+
+        return matchesNombre && matchesNumero && matchesTipo;
+    });
+    renderCardsTable(filtered);
+}
+
+function initCardSelectionModal() {
+    const modalEl = document.getElementById('modalSelectCard');
+    cardModalInstance = new bootstrap.Modal(modalEl);
+
+    document.getElementById('inputFilterNombre').addEventListener('input', filterCards);
+    document.getElementById('inputFilterNumero').addEventListener('input', filterCards);
+    document.getElementById('selectFilterTipo').addEventListener('change', filterCards);
+
+    document.querySelector('#cardsTable tbody').addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-select-card');
+        if (btn) {
+            const id = btn.getAttribute('data-id');
+            const card = currentCards.find(c => (c.idTarjeta || c.id) == id);
+            if (card) {
+                document.getElementById('idTarjeta').value = card.idTarjeta || card.id;
+                document.getElementById('inputBanco').value = card.nombreTarjeta || '';
+                document.getElementById('inputNumeroTarjeta').value = card.numeroTarjeta || '';
+                document.getElementById('inputTipoTarjeta').value = card.tipoTarjeta || '';
+                cardModalInstance.hide();
+            }
+        }
+    });
+}
+
 async function fetchSalesBySucursal(sucursalId) {
     if (!sucursalId) throw new Error('SucursalId no definido');
     const url = GET_VENTAS_BY_SUCURSAL(sucursalId);
@@ -255,6 +329,24 @@ async function createVentaDetails(detailsPayload) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(detailsPayload)
+    });
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    return await res.json();
+}
+
+async function createCard(cardPayload) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(CREATE_TARJETA_ENDPOINT, {
+        method: 'POST', // As per user request
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cardPayload)
     });
     if (!res.ok) {
         let txt = `Status ${res.status}`;
@@ -381,24 +473,51 @@ function initModalLogic() {
     inputDescuento.addEventListener('input', updateTotal);
     inputImpuesto.addEventListener('input', updateTotal);
 
+    document.getElementById('inputMetodoPago').addEventListener('change', (e) => {
+        const isTarjeta = e.target.value === 'TARJETA';
+        document.getElementById('cardFields').classList.toggle('d-none', !isTarjeta);
+        if (isTarjeta) {
+            document.getElementById('cardFields').scrollIntoView({ behavior: 'smooth' });
+        } else {
+            // Clear card fields when not tarjeta
+            document.getElementById('idTarjeta').value = '';
+            document.getElementById('inputBanco').value = '';
+            document.getElementById('inputNumeroTarjeta').value = '';
+            document.getElementById('inputTipoTarjeta').value = '';
+        }
+    });
+
+    document.getElementById('btnSelectExistingCard').addEventListener('click', async () => {
+        await loadCards();
+        renderCardsTable(currentCards);
+        cardModalInstance.show();
+    });
+
     document.getElementById('btnOpenNewSale').addEventListener('click', async () => {
         if (!currentSucursalId) {
             displayError('Primero debes guardar la sucursal.');
             return;
         }
-        document.getElementById('formNewSale').reset();
-        document.getElementById('formNewSale').removeAttribute('data-modifying');
-        document.getElementById('formNewSale').removeAttribute('data-sale-id');
-        inputTotal.value = '0.00';
-        inputPrecioUnitario.value = '0.00';
-        inputDescuento.value = '0';
-        inputImpuesto.value = '0';
-        document.getElementById('inputMetodoPago').value = '';
-        // Limpiar inputs de autocompletado
-        document.getElementById('inputCliente').value = '';
-        document.getElementById('idCliente').value = '';
-        document.getElementById('inputProducto').value = '';
-        document.getElementById('idProducto').value = '';
+         document.getElementById('formNewSale').reset();
+         document.getElementById('formNewSale').removeAttribute('data-modifying');
+         document.getElementById('formNewSale').removeAttribute('data-sale-id');
+         inputTotal.value = '0.00';
+         inputPrecioUnitario.value = '0.00';
+         inputDescuento.value = '0';
+         inputImpuesto.value = '0';
+         document.getElementById('inputMetodoPago').value = '';
+          document.getElementById('inputEsCredito').checked = false;
+          // Limpiar inputs de autocompletado
+          document.getElementById('inputCliente').value = '';
+          document.getElementById('idCliente').value = '';
+          document.getElementById('inputProducto').value = '';
+          document.getElementById('idProducto').value = '';
+          // Limpiar campos de tarjeta
+           document.getElementById('cardFields').classList.add('d-none');
+           document.getElementById('idTarjeta').value = '';
+           document.getElementById('inputBanco').value = '';
+           document.getElementById('inputNumeroTarjeta').value = '';
+           document.getElementById('inputTipoTarjeta').value = '';
 
         // Cargar listas si no inicializado
         await loadClients();
@@ -450,11 +569,42 @@ function initModalLogic() {
     const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
      const totalVenta = Number(document.getElementById('inputTotal').value || 0);
      const notas = document.getElementById('inputNotas').value.trim();
-     const metodoPago = document.getElementById('inputMetodoPago').value;
-     if (!metodoPago) {
-         displayError('Debes seleccionar un método de pago.');
-         return;
-     }
+      const metodoPago = document.getElementById('inputMetodoPago').value;
+       const esCredito = document.getElementById('inputEsCredito').checked;
+       if (!esCredito && !metodoPago) {
+           displayError('Debes seleccionar un método de pago.');
+           return;
+       }
+        let idTarjeta = null;
+        if (metodoPago === 'TARJETA') {
+            idTarjeta = document.getElementById('idTarjeta').value;
+            if (!idTarjeta) {
+                // Create new card
+                const banco = document.getElementById('inputBanco').value.trim();
+                const numero = document.getElementById('inputNumeroTarjeta').value.trim();
+                const tipo = document.getElementById('inputTipoTarjeta').value;
+                if (!banco || !numero || !tipo) {
+                    displayError('Completa todos los campos de tarjeta.');
+                    return;
+                }
+                if (numero.length < 4 || !/^[0-9\*]+$/.test(numero)) {
+                    displayError('Número de tarjeta inválido (mínimo 4 caracteres, solo números o *).');
+                    return;
+                }
+                try {
+                    const cardPayload = {
+                        nombreTarjeta: banco,
+                        numeroTarjeta: numero,
+                        tipoTarjeta: tipo
+                    };
+                    const newCard = await createCard(cardPayload);
+                    idTarjeta = newCard.idTarjeta || newCard.id;
+                } catch (err) {
+                    displayError(`Error creando tarjeta: ${err.message || err}`);
+                    return;
+                }
+            }
+        }
      const subtotal = cantidad * precioUnitario;
 
     try {
@@ -481,16 +631,20 @@ function initModalLogic() {
         const profile = await getUserProfile();
         const idTrabajador = profile.id;
 
-         const ventaPayload = {
-             idSucursal: currentSucursalId,
-             idCliente: selectedClient.idCliente || selectedClient.id,
-             idTrabajador,
-             totalVenta,
-             descuento,
-             impuesto,
-             notas,
-             metodoPago
-         };
+          const ventaPayload = {
+              idSucursal: currentSucursalId,
+              idCliente: selectedClient.idCliente || selectedClient.id,
+              idTrabajador,
+              totalVenta,
+              descuento,
+              impuesto,
+              notas,
+              metodoPago,
+              tipoVenta: esCredito ? "CREDITO" : "CONTADO"
+          };
+          if (idTarjeta) {
+              ventaPayload.idTarjeta = idTarjeta;
+          }
 
         let idVenta;
         if (isModifying) {
@@ -581,6 +735,29 @@ async function loadClients() {
     } catch (err) {
         console.error('loadClients error', err);
         currentClients = [];
+    }
+}
+
+async function loadCards() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(GET_TARJETAS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!res.ok) {
+            let txt = `Status ${res.status}`;
+            try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+            throw new Error(txt);
+        }
+        const data = await res.json();
+        currentCards = Array.isArray(data) ? data : (data?.tarjetas ?? data?.data ?? []);
+    } catch (err) {
+        console.error('loadCards error', err);
+        currentCards = [];
     }
 }
 
@@ -685,9 +862,12 @@ function openViewModal(idVenta) {
                      <div class="col-12 col-md-6">
                          <strong>Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
                      </div>
-                     <div class="col-12 col-md-6">
-                         <strong>Estado:</strong> <span class="badge ${getStatusBadgeClass(sale.estado)}">${sale.estado || 'No especificado'}</span>
-                     </div>
+                      <div class="col-12 col-md-6">
+                          <strong>Estado:</strong> <span class="badge ${getStatusBadgeClass(sale.estado)}">${sale.estado || 'No especificado'}</span>
+                      </div>
+                       <div class="col-12 col-md-6">
+                           <strong>Tipo de Venta:</strong> ${sale.tipoVenta || 'No especificado'}
+                       </div>
                      <div class="col-12">
                          <strong>Notas:</strong> ${sale.notas || 'Sin notas'}
                      </div>
@@ -761,8 +941,9 @@ async function openModifyModal(idVenta) {
          inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
          inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
          inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
-         inputNotas.value = sale.notas || '';
-         document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
+          inputNotas.value = sale.notas || '';
+          document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
+           document.getElementById('inputEsCredito').checked = (sale.tipoVenta === "CREDITO" || (!sale.tipoVenta && sale.estado === "PENDIENTE"));
     }
 
     // Set flag for modification
@@ -891,12 +1072,25 @@ async function init() {
     color: #6c757d;
     cursor: default;
 }
+#cardFields {
+    transition: opacity 0.3s ease-in-out;
+}
+#modalSelectCard .modal-body {
+    border-radius: 0.5rem;
+}
+#cardsTable tbody tr:hover {
+    background-color: #e9ecef !important;
+}
+#cardsTable .btn-select-card {
+    min-width: 100px;
+}
 `;
         document.head.appendChild(style);
 
         showSucursalInputAlways(profile || {});
 
         initModalLogic();
+        initCardSelectionModal();
         initSucursalInputHandlers();
 
         const stored = localStorage.getItem('sucursalId');
