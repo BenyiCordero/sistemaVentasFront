@@ -250,11 +250,11 @@ function filterCards() {
     let filtered = currentCards.filter(card => {
         const nombre = (card.nombreTarjeta || '').toLowerCase();
         const numero = (card.numeroTarjeta || '').toLowerCase();
-        const tipo = card.tipoTarjeta || '';
+        const tipo = (card.tipoTarjeta || '').toLowerCase();
 
         const matchesNombre = !nombreTerm || nombre.includes(nombreTerm);
         const matchesNumero = !numeroTerm || numero.includes(numeroTerm);
-        const matchesTipo = !tipoFilter || tipo === tipoFilter;
+        const matchesTipo = !tipoFilter || tipo === tipoFilter.toLowerCase();
 
         return matchesNombre && matchesNumero && matchesTipo;
     });
