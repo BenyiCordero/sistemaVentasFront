@@ -225,15 +225,16 @@ function renderCardsTable(cards) {
     }
     emptyEl.classList.add('d-none');
     cards.forEach(card => {
+        const tipoBadge = card.tipoTarjeta === 'CREDITO' ? '<span class="badge bg-success">Crédito</span>' : card.tipoTarjeta === 'DEBITO' ? '<span class="badge bg-info">Débito</span>' : '<span class="badge bg-secondary">Otro</span>';
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${card.idTarjeta ?? card.id ?? ''}</td>
-            <td>${card.nombreTarjeta ?? ''}</td>
-            <td>${card.numeroTarjeta ?? ''}</td>
-            <td>${card.tipoTarjeta ?? ''}</td>
+            <td><i class="bi bi-hash text-muted"></i> ${card.idTarjeta ?? card.id ?? ''}</td>
+            <td><i class="bi bi-credit-card text-muted"></i> ${card.nombreTarjeta ?? ''}</td>
+            <td><i class="bi bi-asterisk text-muted"></i> ${card.numeroTarjeta ?? ''}</td>
+            <td>${tipoBadge}</td>
             <td>
-                <button class="btn btn-sm btn-outline-primary btn-select-card" data-id="${card.idTarjeta || card.id}">
-                    <i class="bi bi-check"></i> Seleccionar
+                <button class="btn btn-sm btn-primary btn-select-card" data-id="${card.idTarjeta || card.id}">
+                    <i class="bi bi-check-circle"></i> Seleccionar
                 </button>
             </td>
         `;
@@ -242,12 +243,20 @@ function renderCardsTable(cards) {
 }
 
 function filterCards() {
-    const searchTerm = document.getElementById('inputSearchCard').value.toLowerCase();
+    const nombreTerm = document.getElementById('inputFilterNombre').value.toLowerCase().trim();
+    const numeroTerm = document.getElementById('inputFilterNumero').value.toLowerCase().trim();
+    const tipoFilter = document.getElementById('selectFilterTipo').value;
+
     let filtered = currentCards.filter(card => {
         const nombre = (card.nombreTarjeta || '').toLowerCase();
         const numero = (card.numeroTarjeta || '').toLowerCase();
-        const id = (card.idTarjeta || card.id || '').toString().toLowerCase();
-        return !searchTerm || nombre.includes(searchTerm) || numero.includes(searchTerm) || id.includes(searchTerm);
+        const tipo = card.tipoTarjeta || '';
+
+        const matchesNombre = !nombreTerm || nombre.includes(nombreTerm);
+        const matchesNumero = !numeroTerm || numero.includes(numeroTerm);
+        const matchesTipo = !tipoFilter || tipo === tipoFilter;
+
+        return matchesNombre && matchesNumero && matchesTipo;
     });
     renderCardsTable(filtered);
 }
@@ -256,7 +265,9 @@ function initCardSelectionModal() {
     const modalEl = document.getElementById('modalSelectCard');
     cardModalInstance = new bootstrap.Modal(modalEl);
 
-    document.getElementById('inputSearchCard').addEventListener('input', filterCards);
+    document.getElementById('inputFilterNombre').addEventListener('input', filterCards);
+    document.getElementById('inputFilterNumero').addEventListener('input', filterCards);
+    document.getElementById('selectFilterTipo').addEventListener('change', filterCards);
 
     document.querySelector('#cardsTable tbody').addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-select-card');
@@ -1062,6 +1073,15 @@ async function init() {
 }
 #cardFields {
     transition: opacity 0.3s ease-in-out;
+}
+#modalSelectCard .modal-body {
+    border-radius: 0.5rem;
+}
+#cardsTable tbody tr:hover {
+    background-color: #e9ecef !important;
+}
+#cardsTable .btn-select-card {
+    min-width: 100px;
 }
 `;
         document.head.appendChild(style);
