@@ -14,6 +14,8 @@ const GET_INVENTORY_DETAILS_BY_PRODUCT = (idProducto) => `${BASE_API_URL}/invent
 const UPDATE_INVENTORY_DETAIL_ENDPOINT = (id) => `${BASE_API_URL}/inventoryDetails/${id}`;
 const GET_CLIENTS_ENDPOINT = `${BASE_API_URL}/client`;
 const GET_PRODUCTS_ENDPOINT = `${BASE_API_URL}/product`;
+const GET_TARJETAS_ENDPOINT = `${BASE_API_URL}/tarjeta`;
+const CREATE_TARJETA_ENDPOINT = `${BASE_API_URL}/tarjeta`;
 
 const ventasTableBody = () => document.querySelector('#ventasTable tbody');
 const ventasEmpty = () => document.getElementById('ventas-empty');
@@ -21,8 +23,10 @@ const sucursalWarningEl = () => document.getElementById('sucursal-warning');
 
 let currentSucursalId = null;
 let modalInstance = null;
+let cardModalInstance = null;
 let currentClients = [];
 let currentProducts = [];
+let currentCards = [];
 let autocompleteInitialized = false;
 
 function getStatusBadgeClass(estado) {
@@ -211,6 +215,65 @@ function renderSalesTable(sales) {
     sales.forEach(s => tbody.appendChild(renderSaleRow(s)));
 }
 
+function renderCardsTable(cards) {
+    const tbody = document.querySelector('#cardsTable tbody');
+    tbody.innerHTML = '';
+    const emptyEl = document.getElementById('cards-empty');
+    if (!cards || cards.length === 0) {
+        emptyEl.classList.remove('d-none');
+        return;
+    }
+    emptyEl.classList.add('d-none');
+    cards.forEach(card => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${card.idTarjeta ?? card.id ?? ''}</td>
+            <td>${card.nombreTarjeta ?? ''}</td>
+            <td>${card.numeroTarjeta ?? ''}</td>
+            <td>${card.tipoTarjeta ?? ''}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary btn-select-card" data-id="${card.idTarjeta || card.id}">
+                    <i class="bi bi-check"></i> Seleccionar
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterCards() {
+    const searchTerm = document.getElementById('inputSearchCard').value.toLowerCase();
+    let filtered = currentCards.filter(card => {
+        const nombre = (card.nombreTarjeta || '').toLowerCase();
+        const numero = (card.numeroTarjeta || '').toLowerCase();
+        const id = (card.idTarjeta || card.id || '').toString().toLowerCase();
+        return !searchTerm || nombre.includes(searchTerm) || numero.includes(searchTerm) || id.includes(searchTerm);
+    });
+    renderCardsTable(filtered);
+}
+
+function initCardSelectionModal() {
+    const modalEl = document.getElementById('modalSelectCard');
+    cardModalInstance = new bootstrap.Modal(modalEl);
+
+    document.getElementById('inputSearchCard').addEventListener('input', filterCards);
+
+    document.querySelector('#cardsTable tbody').addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-select-card');
+        if (btn) {
+            const id = btn.getAttribute('data-id');
+            const card = currentCards.find(c => (c.idTarjeta || c.id) == id);
+            if (card) {
+                document.getElementById('idTarjeta').value = card.idTarjeta || card.id;
+                document.getElementById('inputBanco').value = card.nombreTarjeta || '';
+                document.getElementById('inputNumeroTarjeta').value = card.numeroTarjeta || '';
+                document.getElementById('inputTipoTarjeta').value = card.tipoTarjeta || '';
+                cardModalInstance.hide();
+            }
+        }
+    });
+}
+
 async function fetchSalesBySucursal(sucursalId) {
     if (!sucursalId) throw new Error('SucursalId no definido');
     const url = GET_VENTAS_BY_SUCURSAL(sucursalId);
@@ -255,6 +318,24 @@ async function createVentaDetails(detailsPayload) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(detailsPayload)
+    });
+    if (!res.ok) {
+        let txt = `Status ${res.status}`;
+        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+        throw new Error(txt);
+    }
+    return await res.json();
+}
+
+async function createCard(cardPayload) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(CREATE_TARJETA_ENDPOINT, {
+        method: 'POST', // As per user request
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cardPayload)
     });
     if (!res.ok) {
         let txt = `Status ${res.status}`;
@@ -384,7 +465,21 @@ function initModalLogic() {
     document.getElementById('inputMetodoPago').addEventListener('change', (e) => {
         const isTarjeta = e.target.value === 'TARJETA';
         document.getElementById('cardFields').classList.toggle('d-none', !isTarjeta);
-        if (isTarjeta) document.getElementById('cardFields').scrollIntoView({ behavior: 'smooth' });
+        if (isTarjeta) {
+            document.getElementById('cardFields').scrollIntoView({ behavior: 'smooth' });
+        } else {
+            // Clear card fields when not tarjeta
+            document.getElementById('idTarjeta').value = '';
+            document.getElementById('inputBanco').value = '';
+            document.getElementById('inputNumeroTarjeta').value = '';
+            document.getElementById('inputTipoTarjeta').value = '';
+        }
+    });
+
+    document.getElementById('btnSelectExistingCard').addEventListener('click', async () => {
+        await loadCards();
+        renderCardsTable(currentCards);
+        cardModalInstance.show();
     });
 
     document.getElementById('btnOpenNewSale').addEventListener('click', async () => {
@@ -407,10 +502,11 @@ function initModalLogic() {
           document.getElementById('inputProducto').value = '';
           document.getElementById('idProducto').value = '';
           // Limpiar campos de tarjeta
-          document.getElementById('cardFields').classList.add('d-none');
-          document.getElementById('inputBanco').value = '';
-          document.getElementById('inputNumeroTarjeta').value = '';
-          document.getElementById('inputTipoTarjeta').value = '';
+           document.getElementById('cardFields').classList.add('d-none');
+           document.getElementById('idTarjeta').value = '';
+           document.getElementById('inputBanco').value = '';
+           document.getElementById('inputNumeroTarjeta').value = '';
+           document.getElementById('inputTipoTarjeta').value = '';
 
         // Cargar listas si no inicializado
         await loadClients();
@@ -468,19 +564,36 @@ function initModalLogic() {
            displayError('Debes seleccionar un método de pago.');
            return;
        }
-       if (metodoPago === 'TARJETA') {
-           const banco = document.getElementById('inputBanco').value.trim();
-           const numero = document.getElementById('inputNumeroTarjeta').value.trim();
-           const tipo = document.getElementById('inputTipoTarjeta').value;
-           if (!banco || !numero || !tipo) {
-               displayError('Completa todos los campos de tarjeta.');
-               return;
-           }
-           if (numero.length < 4 || !/^[0-9\*]+$/.test(numero)) {
-               displayError('Número de tarjeta inválido (mínimo 4 caracteres, solo números o *).');
-               return;
-           }
-       }
+        let idTarjeta = null;
+        if (metodoPago === 'TARJETA') {
+            idTarjeta = document.getElementById('idTarjeta').value;
+            if (!idTarjeta) {
+                // Create new card
+                const banco = document.getElementById('inputBanco').value.trim();
+                const numero = document.getElementById('inputNumeroTarjeta').value.trim();
+                const tipo = document.getElementById('inputTipoTarjeta').value;
+                if (!banco || !numero || !tipo) {
+                    displayError('Completa todos los campos de tarjeta.');
+                    return;
+                }
+                if (numero.length < 4 || !/^[0-9\*]+$/.test(numero)) {
+                    displayError('Número de tarjeta inválido (mínimo 4 caracteres, solo números o *).');
+                    return;
+                }
+                try {
+                    const cardPayload = {
+                        nombreTarjeta: banco,
+                        numeroTarjeta: numero,
+                        tipoTarjeta: tipo
+                    };
+                    const newCard = await createCard(cardPayload);
+                    idTarjeta = newCard.idTarjeta || newCard.id;
+                } catch (err) {
+                    displayError(`Error creando tarjeta: ${err.message || err}`);
+                    return;
+                }
+            }
+        }
      const subtotal = cantidad * precioUnitario;
 
     try {
@@ -507,16 +620,19 @@ function initModalLogic() {
         const profile = await getUserProfile();
         const idTrabajador = profile.id;
 
-         const ventaPayload = {
-             idSucursal: currentSucursalId,
-             idCliente: selectedClient.idCliente || selectedClient.id,
-             idTrabajador,
-             totalVenta,
-             descuento,
-             impuesto,
-             notas,
-             metodoPago
-         };
+          const ventaPayload = {
+              idSucursal: currentSucursalId,
+              idCliente: selectedClient.idCliente || selectedClient.id,
+              idTrabajador,
+              totalVenta,
+              descuento,
+              impuesto,
+              notas,
+              metodoPago
+          };
+          if (idTarjeta) {
+              ventaPayload.idTarjeta = idTarjeta;
+          }
 
         let idVenta;
         if (isModifying) {
@@ -607,6 +723,29 @@ async function loadClients() {
     } catch (err) {
         console.error('loadClients error', err);
         currentClients = [];
+    }
+}
+
+async function loadCards() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(GET_TARJETAS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!res.ok) {
+            let txt = `Status ${res.status}`;
+            try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
+            throw new Error(txt);
+        }
+        const data = await res.json();
+        currentCards = Array.isArray(data) ? data : (data?.tarjetas ?? data?.data ?? []);
+    } catch (err) {
+        console.error('loadCards error', err);
+        currentCards = [];
     }
 }
 
@@ -930,6 +1069,7 @@ async function init() {
         showSucursalInputAlways(profile || {});
 
         initModalLogic();
+        initCardSelectionModal();
         initSucursalInputHandlers();
 
         const stored = localStorage.getItem('sucursalId');
