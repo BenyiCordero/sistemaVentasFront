@@ -1,16 +1,12 @@
 // js/auth.js
-import { displayError, clearError, displayMessage, clearMessage } from './utils.js';
-
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-
 const logoutButton = document.getElementById('btnLogout');
 const showLoginLink = document.getElementById('show-login');
+import { displayError, clearError, displayMessage, clearMessage } from './utils.js';
 
 const loginError = document.getElementById('auth-error');
 const authMessage = document.getElementById('auth-message'); 
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 const LOGIN_API_URL = `${BASE_API_URL}/auth/login`;
 const REGISTER_API_URL = `${BASE_API_URL}/auth/register`;
 
@@ -29,6 +25,9 @@ function safeDisplayMessage(el, msg) {
     displayMessage(el, msg);
 }
 
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+
 function safeDisplayError(el, msg) {
     if (!el) {
         console.warn('Elemento de error no encontrado, mensaje descartado:', msg);
@@ -36,6 +35,7 @@ function safeDisplayError(el, msg) {
     }
     displayError(el, msg);
 }
+
 
 function safeClearError(el) {
     if (!el) return;

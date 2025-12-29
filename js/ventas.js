@@ -2,7 +2,7 @@
 import { displayError, displayMessage } from './utils.js';
 import { getUserProfile } from './session.js';
 
-const BASE_API_URL = '/api';
+const BASE_API_URL = 'http://localhost:8081/api';
 
 const GET_VENTAS_BY_SUCURSAL = (sucursalId) => `${BASE_API_URL}/sell/sucursal/${sucursalId}`;
 const CREATE_VENTA_ENDPOINT = `${BASE_API_URL}/sell`;
@@ -381,24 +381,36 @@ function initModalLogic() {
     inputDescuento.addEventListener('input', updateTotal);
     inputImpuesto.addEventListener('input', updateTotal);
 
+    document.getElementById('inputMetodoPago').addEventListener('change', (e) => {
+        const isTarjeta = e.target.value === 'TARJETA';
+        document.getElementById('cardFields').classList.toggle('d-none', !isTarjeta);
+        if (isTarjeta) document.getElementById('cardFields').scrollIntoView({ behavior: 'smooth' });
+    });
+
     document.getElementById('btnOpenNewSale').addEventListener('click', async () => {
         if (!currentSucursalId) {
             displayError('Primero debes guardar la sucursal.');
             return;
         }
-        document.getElementById('formNewSale').reset();
-        document.getElementById('formNewSale').removeAttribute('data-modifying');
-        document.getElementById('formNewSale').removeAttribute('data-sale-id');
-        inputTotal.value = '0.00';
-        inputPrecioUnitario.value = '0.00';
-        inputDescuento.value = '0';
-        inputImpuesto.value = '0';
-        document.getElementById('inputMetodoPago').value = '';
-        // Limpiar inputs de autocompletado
-        document.getElementById('inputCliente').value = '';
-        document.getElementById('idCliente').value = '';
-        document.getElementById('inputProducto').value = '';
-        document.getElementById('idProducto').value = '';
+         document.getElementById('formNewSale').reset();
+         document.getElementById('formNewSale').removeAttribute('data-modifying');
+         document.getElementById('formNewSale').removeAttribute('data-sale-id');
+         inputTotal.value = '0.00';
+         inputPrecioUnitario.value = '0.00';
+         inputDescuento.value = '0';
+         inputImpuesto.value = '0';
+         document.getElementById('inputMetodoPago').value = '';
+          document.getElementById('inputEsCredito').checked = false;
+          // Limpiar inputs de autocompletado
+          document.getElementById('inputCliente').value = '';
+          document.getElementById('idCliente').value = '';
+          document.getElementById('inputProducto').value = '';
+          document.getElementById('idProducto').value = '';
+          // Limpiar campos de tarjeta
+          document.getElementById('cardFields').classList.add('d-none');
+          document.getElementById('inputBanco').value = '';
+          document.getElementById('inputNumeroTarjeta').value = '';
+          document.getElementById('inputTipoTarjeta').value = '';
 
         // Cargar listas si no inicializado
         await loadClients();
@@ -450,11 +462,25 @@ function initModalLogic() {
     const impuesto = Number(document.getElementById('inputImpuesto').value || 0);
      const totalVenta = Number(document.getElementById('inputTotal').value || 0);
      const notas = document.getElementById('inputNotas').value.trim();
-     const metodoPago = document.getElementById('inputMetodoPago').value;
-     if (!metodoPago) {
-         displayError('Debes seleccionar un método de pago.');
-         return;
-     }
+      const metodoPago = document.getElementById('inputMetodoPago').value;
+       const esCredito = document.getElementById('inputEsCredito').checked;
+       if (!esCredito && !metodoPago) {
+           displayError('Debes seleccionar un método de pago.');
+           return;
+       }
+       if (metodoPago === 'TARJETA') {
+           const banco = document.getElementById('inputBanco').value.trim();
+           const numero = document.getElementById('inputNumeroTarjeta').value.trim();
+           const tipo = document.getElementById('inputTipoTarjeta').value;
+           if (!banco || !numero || !tipo) {
+               displayError('Completa todos los campos de tarjeta.');
+               return;
+           }
+           if (numero.length < 4 || !/^[0-9\*]+$/.test(numero)) {
+               displayError('Número de tarjeta inválido (mínimo 4 caracteres, solo números o *).');
+               return;
+           }
+       }
      const subtotal = cantidad * precioUnitario;
 
     try {
@@ -685,9 +711,12 @@ function openViewModal(idVenta) {
                      <div class="col-12 col-md-6">
                          <strong>Método de Pago:</strong> <span class="badge bg-secondary">${sale.metodoPago || 'No especificado'}</span>
                      </div>
-                     <div class="col-12 col-md-6">
-                         <strong>Estado:</strong> <span class="badge ${getStatusBadgeClass(sale.estado)}">${sale.estado || 'No especificado'}</span>
-                     </div>
+                      <div class="col-12 col-md-6">
+                          <strong>Estado:</strong> <span class="badge ${getStatusBadgeClass(sale.estado)}">${sale.estado || 'No especificado'}</span>
+                      </div>
+                      <div class="col-12 col-md-6">
+                          <strong>Es a crédito:</strong> ${sale.estado === "PENDIENTE" ? "Sí" : "No"}
+                      </div>
                      <div class="col-12">
                          <strong>Notas:</strong> ${sale.notas || 'Sin notas'}
                      </div>
@@ -761,8 +790,9 @@ async function openModifyModal(idVenta) {
          inputDescuento.value = Number(sale.descuento || 0).toFixed(2);
          inputImpuesto.value = Number(sale.impuesto || 0).toFixed(2);
          inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
-         inputNotas.value = sale.notas || '';
-         document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
+          inputNotas.value = sale.notas || '';
+          document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
+          document.getElementById('inputEsCredito').checked = (sale.estado === "PENDIENTE");
     }
 
     // Set flag for modification
@@ -890,6 +920,9 @@ async function init() {
 .autocomplete-item.no-results {
     color: #6c757d;
     cursor: default;
+}
+#cardFields {
+    transition: opacity 0.3s ease-in-out;
 }
 `;
         document.head.appendChild(style);
