@@ -639,7 +639,8 @@ function initModalLogic() {
               descuento,
               impuesto,
               notas,
-              metodoPago
+              metodoPago,
+              tipoVenta: esCredito ? "CREDITO" : "CONTADO"
           };
           if (idTarjeta) {
               ventaPayload.idTarjeta = idTarjeta;
@@ -864,9 +865,9 @@ function openViewModal(idVenta) {
                       <div class="col-12 col-md-6">
                           <strong>Estado:</strong> <span class="badge ${getStatusBadgeClass(sale.estado)}">${sale.estado || 'No especificado'}</span>
                       </div>
-                      <div class="col-12 col-md-6">
-                          <strong>Es a crédito:</strong> ${sale.estado === "PENDIENTE" ? "Sí" : "No"}
-                      </div>
+                       <div class="col-12 col-md-6">
+                           <strong>Tipo de Venta:</strong> ${sale.tipoVenta || 'No especificado'}
+                       </div>
                      <div class="col-12">
                          <strong>Notas:</strong> ${sale.notas || 'Sin notas'}
                      </div>
@@ -942,7 +943,7 @@ async function openModifyModal(idVenta) {
          inputTotal.value = Number(sale.totalVenta || sale.total).toFixed(2);
           inputNotas.value = sale.notas || '';
           document.getElementById('inputMetodoPago').value = sale.metodoPago || '';
-          document.getElementById('inputEsCredito').checked = (sale.estado === "PENDIENTE");
+           document.getElementById('inputEsCredito').checked = (sale.tipoVenta === "CREDITO" || (!sale.tipoVenta && sale.estado === "PENDIENTE"));
     }
 
     // Set flag for modification
