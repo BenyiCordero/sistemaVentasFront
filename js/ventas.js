@@ -529,8 +529,9 @@ function initModalLogic() {
               impuesto,
               notas,
               metodoPago,
-              tipoVenta: esCredito ? "CREDITO" : "CONTADO"
-          };
+               tipoVenta: esCredito ? "CREDITO" : "CONTADO",
+               estado: esCredito ? "PENDIENTE" : "PAGADA"
+           };
           if (idTarjeta) {
               ventaPayload.idTarjeta = idTarjeta;
           }
