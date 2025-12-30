@@ -160,31 +160,12 @@
                                     </div>
                                 </div>
 
-                                 <div id="cardFields" class="row g-3 d-none" style="margin-top: 1rem;">
-                                     <div class="col-12">
-                                         <h6 class="text-muted">Detalles de Tarjeta</h6>
-                                     </div>
-                                     <div class="col-12">
-                                         <button type="button" id="btnSelectExistingCard" class="btn btn-outline-primary btn-sm">Seleccionar existente</button>
-                                     </div>
-                                     <input type="hidden" id="idTarjeta">
-                                     <div class="col-12 col-md-4">
-                                         <label class="form-label">Nombre</label>
-                                         <input type="text" id="inputBanco" class="form-control" placeholder="Ej: Nu Credito Benyi">
-                                     </div>
-                                     <div class="col-12 col-md-4">
-                                         <label class="form-label">Ultimos 4 numeros de tarjeta</label>
-                                         <input type="text" id="inputNumeroTarjeta" class="form-control" placeholder="Ej: 1234" maxlength="4">
-                                     </div>
-                                     <div class="col-12 col-md-4">
-                                         <label class="form-label">Tipo de Tarjeta</label>
-                                         <select id="inputTipoTarjeta" class="form-select">
-                                             <option value="">Seleccionar tipo</option>
-                                             <option value="CREDITO">Crédito</option>
-                                             <option value="DEBITO">Débito</option>
-                                         </select>
-                                     </div>
-                                 </div>
+                                  <div id="cardSelectContainer" class="col-12 d-none" style="margin-top: 1rem;">
+                                      <label class="form-label">Seleccionar Tarjeta</label>
+                                      <select id="selectTarjeta" class="form-select">
+                                          <option value="">Cargando tarjetas...</option>
+                                      </select>
+                                  </div>
 
                                <div class="col-12">
                                    <label class="form-label">Notas (opcional)</label>
@@ -202,58 +183,7 @@
         </div>
      </div>
 
-     <!-- Modal: Seleccionar tarjeta existente -->
-     <div class="modal fade" id="modalSelectCard" tabindex="-1" aria-hidden="true">
-         <div class="modal-dialog modal-lg modal-dialog-centered">
-             <div class="modal-content">
-                 <div class="modal-header">
-                     <h5 class="modal-title">Seleccionar Tarjeta</h5>
-                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                 </div>
-                  <div class="modal-body bg-light">
-                      <!-- Filtros -->
-                      <div class="row g-3 mb-3">
-                          <div class="col-12 col-md-4">
-                              <label class="form-label small fw-semibold">Buscar por nombre</label>
-                              <input autocomplete="off" id="inputFilterNombre" class="form-control" type="text" placeholder="Nombre de la tarjeta...">
-                          </div>
-                          <div class="col-12 col-md-4">
-                              <label class="form-label small fw-semibold">Últimos 4 números</label>
-                              <input autocomplete="off" id="inputFilterNumero" class="form-control" type="text" placeholder="Ej: 1234" maxlength="4">
-                          </div>
-                          <div class="col-12 col-md-4">
-                              <label class="form-label small fw-semibold">Tipo de tarjeta</label>
-                              <select id="selectFilterTipo" class="form-select">
-                                  <option value="">Todos</option>
-                                  <option value="credito">Crédito</option>
-                                  <option value="debito">Débito</option>
-                              </select>
-                          </div>
-                      </div>
-                      <div class="table-responsive">
-                          <table id="cardsTable" class="table table-striped table-hover align-middle table-sm border">
-                             <thead>
-                                 <tr>
-                                     <th>ID</th>
-                                     <th>Nombre</th>
-                                     <th>Número</th>
-                                     <th>Tipo</th>
-                                     <th>Acción</th>
-                                 </tr>
-                             </thead>
-                             <tbody>
-                                 <!-- filas inyectadas por JS -->
-                             </tbody>
-                         </table>
-                     </div>
-                      <div id="cards-empty" class="text-muted small text-center py-4 d-none">
-                          <i class="bi bi-credit-card fs-2 text-secondary mb-2"></i><br>
-                          No hay tarjetas disponibles.
-                      </div>
-                 </div>
-             </div>
-         </div>
-     </div>
+
 
      <!-- scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>

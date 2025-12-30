@@ -23,7 +23,6 @@ const sucursalWarningEl = () => document.getElementById('sucursal-warning');
 
 let currentSucursalId = null;
 let modalInstance = null;
-let cardModalInstance = null;
 let currentClients = [];
 let currentProducts = [];
 let currentCards = [];
@@ -215,75 +214,11 @@ function renderSalesTable(sales) {
     sales.forEach(s => tbody.appendChild(renderSaleRow(s)));
 }
 
-function renderCardsTable(cards) {
-    const tbody = document.querySelector('#cardsTable tbody');
-    tbody.innerHTML = '';
-    const emptyEl = document.getElementById('cards-empty');
-    if (!cards || cards.length === 0) {
-        emptyEl.classList.remove('d-none');
-        return;
-    }
-    emptyEl.classList.add('d-none');
-    cards.forEach(card => {
-        const tipoBadge = card.tipoTarjeta === 'CREDITO' ? '<span class="badge bg-success">Crédito</span>' : card.tipoTarjeta === 'DEBITO' ? '<span class="badge bg-info">Débito</span>' : '<span class="badge bg-secondary">Otro</span>';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><i class="bi bi-hash text-muted"></i> ${card.idTarjeta ?? card.id ?? ''}</td>
-            <td><i class="bi bi-credit-card text-muted"></i> ${card.nombreTarjeta ?? ''}</td>
-            <td><i class="bi bi-asterisk text-muted"></i> ${card.numeroTarjeta ?? ''}</td>
-            <td>${tipoBadge}</td>
-            <td>
-                <button class="btn btn-sm btn-primary btn-select-card" data-id="${card.idTarjeta || card.id}">
-                    <i class="bi bi-check-circle"></i> Seleccionar
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
 
-function filterCards() {
-    const nombreTerm = document.getElementById('inputFilterNombre').value.toLowerCase().trim();
-    const numeroTerm = document.getElementById('inputFilterNumero').value.toLowerCase().trim();
-    const tipoFilter = document.getElementById('selectFilterTipo').value;
 
-    let filtered = currentCards.filter(card => {
-        const nombre = (card.nombreTarjeta || '').toLowerCase();
-        const numero = (card.numeroTarjeta || '').toLowerCase();
-        const tipo = (card.tipoTarjeta || '').toLowerCase();
 
-        const matchesNombre = !nombreTerm || nombre.includes(nombreTerm);
-        const matchesNumero = !numeroTerm || numero.includes(numeroTerm);
-        const matchesTipo = !tipoFilter || tipo === tipoFilter.toLowerCase();
 
-        return matchesNombre && matchesNumero && matchesTipo;
-    });
-    renderCardsTable(filtered);
-}
 
-function initCardSelectionModal() {
-    const modalEl = document.getElementById('modalSelectCard');
-    cardModalInstance = new bootstrap.Modal(modalEl);
-
-    document.getElementById('inputFilterNombre').addEventListener('input', filterCards);
-    document.getElementById('inputFilterNumero').addEventListener('input', filterCards);
-    document.getElementById('selectFilterTipo').addEventListener('change', filterCards);
-
-    document.querySelector('#cardsTable tbody').addEventListener('click', (e) => {
-        const btn = e.target.closest('.btn-select-card');
-        if (btn) {
-            const id = btn.getAttribute('data-id');
-            const card = currentCards.find(c => (c.idTarjeta || c.id) == id);
-            if (card) {
-                document.getElementById('idTarjeta').value = card.idTarjeta || card.id;
-                document.getElementById('inputBanco').value = card.nombreTarjeta || '';
-                document.getElementById('inputNumeroTarjeta').value = card.numeroTarjeta || '';
-                document.getElementById('inputTipoTarjeta').value = card.tipoTarjeta || '';
-                cardModalInstance.hide();
-            }
-        }
-    });
-}
 
 async function fetchSalesBySucursal(sucursalId) {
     if (!sucursalId) throw new Error('SucursalId no definido');
@@ -338,23 +273,7 @@ async function createVentaDetails(detailsPayload) {
     return await res.json();
 }
 
-async function createCard(cardPayload) {
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(CREATE_TARJETA_ENDPOINT, {
-        method: 'POST', // As per user request
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(cardPayload)
-    });
-    if (!res.ok) {
-        let txt = `Status ${res.status}`;
-        try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (e) { const t = await res.text(); if (t) txt = t; }
-        throw new Error(txt);
-    }
-    return await res.json();
-}
+
 
 async function fetchVentaDetails(idVenta) {
     const token = localStorage.getItem('authToken');
@@ -473,25 +392,20 @@ function initModalLogic() {
     inputDescuento.addEventListener('input', updateTotal);
     inputImpuesto.addEventListener('input', updateTotal);
 
-    document.getElementById('inputMetodoPago').addEventListener('change', (e) => {
+    document.getElementById('inputMetodoPago').addEventListener('change', async (e) => {
         const isTarjeta = e.target.value === 'TARJETA';
-        document.getElementById('cardFields').classList.toggle('d-none', !isTarjeta);
+        document.getElementById('cardSelectContainer').classList.toggle('d-none', !isTarjeta);
         if (isTarjeta) {
-            document.getElementById('cardFields').scrollIntoView({ behavior: 'smooth' });
+            await loadCards();
+            populateCardSelect();
+            document.getElementById('cardSelectContainer').scrollIntoView({ behavior: 'smooth' });
         } else {
-            // Clear card fields when not tarjeta
-            document.getElementById('idTarjeta').value = '';
-            document.getElementById('inputBanco').value = '';
-            document.getElementById('inputNumeroTarjeta').value = '';
-            document.getElementById('inputTipoTarjeta').value = '';
+            // Clear card selection when not tarjeta
+            document.getElementById('selectTarjeta').value = '';
         }
     });
 
-    document.getElementById('btnSelectExistingCard').addEventListener('click', async () => {
-        await loadCards();
-        renderCardsTable(currentCards);
-        cardModalInstance.show();
-    });
+
 
     document.getElementById('btnOpenNewSale').addEventListener('click', async () => {
         if (!currentSucursalId) {
@@ -512,12 +426,9 @@ function initModalLogic() {
           document.getElementById('idCliente').value = '';
           document.getElementById('inputProducto').value = '';
           document.getElementById('idProducto').value = '';
-          // Limpiar campos de tarjeta
-           document.getElementById('cardFields').classList.add('d-none');
-           document.getElementById('idTarjeta').value = '';
-           document.getElementById('inputBanco').value = '';
-           document.getElementById('inputNumeroTarjeta').value = '';
-           document.getElementById('inputTipoTarjeta').value = '';
+           // Limpiar selección de tarjeta
+            document.getElementById('cardSelectContainer').classList.add('d-none');
+            document.getElementById('selectTarjeta').value = '';
 
         // Cargar listas si no inicializado
         await loadClients();
@@ -575,36 +486,14 @@ function initModalLogic() {
            displayError('Debes seleccionar un método de pago.');
            return;
        }
-        let idTarjeta = null;
-        if (metodoPago === 'TARJETA') {
-            idTarjeta = document.getElementById('idTarjeta').value;
-            if (!idTarjeta) {
-                // Create new card
-                const banco = document.getElementById('inputBanco').value.trim();
-                const numero = document.getElementById('inputNumeroTarjeta').value.trim();
-                const tipo = document.getElementById('inputTipoTarjeta').value;
-                if (!banco || !numero || !tipo) {
-                    displayError('Completa todos los campos de tarjeta.');
-                    return;
-                }
-                if (numero.length < 4 || !/^[0-9\*]+$/.test(numero)) {
-                    displayError('Número de tarjeta inválido (mínimo 4 caracteres, solo números o *).');
-                    return;
-                }
-                try {
-                    const cardPayload = {
-                        nombreTarjeta: banco,
-                        numeroTarjeta: numero,
-                        tipoTarjeta: tipo
-                    };
-                    const newCard = await createCard(cardPayload);
-                    idTarjeta = newCard.idTarjeta || newCard.id;
-                } catch (err) {
-                    displayError(`Error creando tarjeta: ${err.message || err}`);
-                    return;
-                }
-            }
-        }
+         let idTarjeta = null;
+         if (metodoPago === 'TARJETA') {
+             idTarjeta = document.getElementById('selectTarjeta').value;
+             if (!idTarjeta) {
+                 displayError('Debes seleccionar una tarjeta. Si no tienes tarjetas registradas, créalas desde el dashboard.');
+                 return;
+             }
+         }
      const subtotal = cantidad * precioUnitario;
 
     try {
@@ -759,6 +648,32 @@ async function loadCards() {
         console.error('loadCards error', err);
         currentCards = [];
     }
+}
+
+function populateCardSelect() {
+    const select = document.getElementById('selectTarjeta');
+    select.innerHTML = '';
+
+    if (!currentCards || currentCards.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No hay tarjetas disponibles. Crea una desde el dashboard.';
+        option.disabled = true;
+        select.appendChild(option);
+        return;
+    }
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Seleccionar tarjeta';
+    select.appendChild(defaultOption);
+
+    currentCards.forEach(card => {
+        const option = document.createElement('option');
+        option.value = card.idTarjeta || card.id;
+        option.textContent = `${card.nombreTarjeta} ****${card.numeroTarjeta} (${card.tipoTarjeta === 'CREDITO' ? 'Crédito' : 'Débito'})`;
+        select.appendChild(option);
+    });
 }
 
 async function loadProducts() {
@@ -1090,7 +1005,6 @@ async function init() {
         showSucursalInputAlways(profile || {});
 
         initModalLogic();
-        initCardSelectionModal();
         initSucursalInputHandlers();
 
         const stored = localStorage.getItem('sucursalId');

@@ -5,9 +5,11 @@ import { notifySuccess, notifyError } from './utils.js';
 const BASE_API_URL = 'http://localhost:8081/api';
 const CREATE_INVENTORY_ENDPOINT = `${BASE_API_URL}/inventory`;
 const GET_SUCURSAL_ENDPOINT = `${BASE_API_URL}/sucursal/getByUsuario`;
+const CREATE_TARJETA_ENDPOINT = `${BASE_API_URL}/tarjeta`;
 
 let sucursalModalInstance = null;
 let clienteModalInstance = null;
+let tarjetaModalInstance = null;
 
 async function fetchSucursalByEmail(email) {
     const token = localStorage.getItem('authToken');
@@ -343,12 +345,99 @@ function initClienteModal() {
     formCliente.addEventListener('submit', handler);
 }
 
+function initTarjetaModal() {
+    const modalEl = document.getElementById('modalTarjeta');
+    if (!modalEl) {
+        console.warn('initTarjetaModal: modalTarjeta no encontrado en DOM.');
+        return;
+    }
+    tarjetaModalInstance = new bootstrap.Modal(modalEl);
+
+    const formTarjeta = document.getElementById('formTarjeta');
+    if (!formTarjeta) {
+        console.warn('initTarjetaModal: formTarjeta no encontrado en DOM.');
+        return;
+    }
+
+    if (formTarjeta._submitHandler) {
+        try { formTarjeta.removeEventListener('submit', formTarjeta._submitHandler); } catch (e) { /* ignore */ }
+    }
+
+    const handler = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const nombreTarjeta = document.getElementById('inputTarjetaNombre')?.value.trim() || '';
+        const numeroTarjeta = document.getElementById('inputTarjetaNumero')?.value.trim() || '';
+        const tipoTarjeta = document.getElementById('inputTarjetaTipo')?.value || '';
+
+        if (!nombreTarjeta || nombreTarjeta.length < 3) {
+            notifyError('El nombre de la tarjeta debe tener al menos 3 caracteres.');
+            return;
+        }
+
+        if (!numeroTarjeta || numeroTarjeta.length !== 4 || !/^[0-9]{4}$/.test(numeroTarjeta)) {
+            notifyError('Los últimos 4 números deben ser exactamente 4 dígitos numéricos.');
+            return;
+        }
+
+        if (!tipoTarjeta) {
+            notifyError('Debes seleccionar el tipo de tarjeta.');
+            return;
+        }
+
+        const payload = {
+            nombreTarjeta,
+            numeroTarjeta,
+            tipoTarjeta
+        };
+
+        let btn = document.getElementById('btnSubmitTarjeta');
+
+        try {
+            if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+
+            const token = localStorage.getItem('authToken');
+            const res = await fetch(CREATE_TARJETA_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                let txt = `Status ${res.status}`;
+                try { const obj = await res.json(); txt = obj.message || JSON.stringify(obj); } catch (err) { const t = await res.text(); if (t) txt = t; }
+                throw new Error(txt);
+            }
+
+            try { notifySuccess('Tarjeta creada correctamente.'); } catch (e) { console.log('Tarjeta creada correctamente.'); }
+
+            try { formTarjeta.reset(); } catch (err) { console.warn('formTarjeta reset falló:', err); }
+
+            try { if (tarjetaModalInstance && typeof tarjetaModalInstance.hide === 'function') tarjetaModalInstance.hide(); } catch (err) { console.warn('No se pudo ocultar tarjetaModalInstance:', err); }
+
+        } catch (err) {
+            console.error('createTarjeta error', err);
+            try { notifyError(`No se pudo crear la tarjeta: ${err.message || err}`); } catch (e) { console.error(`No se pudo crear la tarjeta: ${err.message || err}`); }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Crear Tarjeta'; }
+        }
+    };
+
+    formTarjeta._submitHandler = handler;
+    formTarjeta.addEventListener('submit', handler);
+}
+
 async function initLanding() {
     await updateDashboardUI();
     initSucursalModal();
     initClienteModal();
+    initTarjetaModal();
     resolveSucursalOnLogin();
-    
+
     setInterval(updateDashboardUI, 30000);
 }
 

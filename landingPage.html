@@ -26,18 +26,18 @@
                             importantes.</p>
 
                         <div class="row g-3">
-                            <div class="col-12 col-md-3">
-                                <a href="ventas.html"
-                                    class="card action-card rounded-15 text-decoration-none p-3 h-100">
-                                    <div class="d-flex align-items-center">
-                                        <i class="bi bi-cart-plus fs-3 me-3"></i>
-                                        <div>
-                                            <div class="fw-semibold">Registrar venta</div>
-                                            <small class="text-muted">Agregar venta rápida</small>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
+                             <div class="col-12 col-md-3">
+                                 <button class="card action-card rounded-15 text-decoration-none p-3 h-100 border-0 bg-transparent"
+                                     data-bs-toggle="modal" data-bs-target="#modalTarjeta">
+                                     <div class="d-flex align-items-center">
+                                         <i class="bi bi-credit-card fs-3 me-3"></i>
+                                         <div>
+                                             <div class="fw-semibold">Agregar tarjeta</div>
+                                             <small class="text-muted">Registrar nueva tarjeta</small>
+                                         </div>
+                                     </div>
+                                 </button>
+                             </div>
                             <div class="col-12 col-md-3">
                                 <a href="inventario.html"
                                     class="card action-card rounded-15 text-decoration-none p-3 h-100">
@@ -205,6 +205,46 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button id="btnSubmitCliente" type="submit" class="btn btn-primary">Crear Cliente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Nueva Tarjeta -->
+    <div class="modal fade" id="modalTarjeta" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formTarjeta">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Crear Nueva Tarjeta</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Nombre de la Tarjeta *</label>
+                                <input name="nombreTarjeta" id="inputTarjetaNombre" class="form-control" type="text"
+                                    placeholder="Ej: Nu Credito Benyi" maxlength="60" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Últimos 4 números *</label>
+                                <input name="numeroTarjeta" id="inputTarjetaNumero" class="form-control" type="text"
+                                    placeholder="1234" maxlength="4" pattern="[0-9]{4}" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Tipo de Tarjeta *</label>
+                                <select name="tipoTarjeta" id="inputTarjetaTipo" class="form-select" required>
+                                    <option value="">Seleccionar tipo</option>
+                                    <option value="CREDITO">Crédito</option>
+                                    <option value="DEBITO">Débito</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="btnSubmitTarjeta" type="submit" class="btn btn-primary">Crear Tarjeta</button>
                     </div>
                 </form>
             </div>
